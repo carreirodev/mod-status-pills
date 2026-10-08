@@ -2,6 +2,8 @@
 
 Faixa de "pílulas" logo acima do prompt do Claude Code (no terminal) com o que a status line mostra, num visual mais limpo:
 
+![A faixa de pílulas no terminal: modelo e esforço, contexto, limites de 5 horas e 7 dias, projeto e branch](docs/preview.png)
+
 - modelo e esforço (`Opus 5.5 high`);
 - contexto usado (`ctx`), com barra;
 - limite de 5 horas, com barra e o tempo que falta para renovar (`↻ 2h54`);
