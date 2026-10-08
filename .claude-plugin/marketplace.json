@@ -1,0 +1,6 @@
+{
+  "name": "status-pills",
+  "description": "carreirodev's status pills for Claude Code",
+  "owner": { "name": "carreirodev" },
+  "plugins": [{ "name": "status-pills", "source": "./" }]
+}
