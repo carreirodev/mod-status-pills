@@ -21,10 +21,11 @@ const LABEL = '#9ca3af'
 const VALUE = '#f3f4f6'
 const TIME = '#cbd5e1'
 const TRACK = '#3f3f46'
-const PROJECT = '#ffffff'
-const BRANCH = '#e2e8f0'
-// The Powerline branch glyph, which needs a Nerd Font in the terminal
-const BRANCH_ICON = ''
+// The oh-my-posh prompt's colors and Nerd Font glyphs: a green folder, a blue branch
+const PROJECT = '#33dd2d'
+const BRANCH = '#3a86ff'
+const FOLDER_ICON = '\ue5ff'
+const BRANCH_ICON = '\ue0a0'
 
 // The same thresholds as the shell status line: under 50% fine, under 80% watch, then critical
 const OK = '#4ade80'
@@ -184,7 +185,7 @@ function pillsOf(shot: Snapshot, effortLevel: string | null, isCompact: boolean)
   }
   const place: Part[] = []
   if (shot.project !== null) {
-    place.push(plain(shot.project, PROJECT))
+    place.push(plain(`${FOLDER_ICON} ${shot.project}`, PROJECT))
   }
   if (shot.branch !== null) {
     place.push(plain(`${place.length > 0 ? ' ' : ''}${BRANCH_ICON} ${shot.branch}`, BRANCH))

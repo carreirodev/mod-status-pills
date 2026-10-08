@@ -120,8 +120,8 @@ test('draws every pill with its bar, share and reset when the band has room', as
     expect(texts).toContain(' 52%')
     expect(texts).toContain('↻ 11/10 19h')
     expect(texts.some(text => text.includes('20:34') || text.includes('3d02h'))).toBe(false)
-    expect(texts).toContain('painel-agents-mod')
-    expect(texts).toContain('  main')
+    expect(texts).toContain('\ue5ff painel-agents-mod')
+    expect(texts).toContain(' \ue0a0 main')
     await ui.unmount()
   }
 })
@@ -174,8 +174,8 @@ test('before the first response: the model and the project alone', async ($, on)
   const texts = await textsOf(ui)
 
   expect(texts).toContain('Opus 5.5')
-  expect(texts).toContain('painel-agents-mod')
-  expect(texts).toContain('  main')
+  expect(texts).toContain('\ue5ff painel-agents-mod')
+  expect(texts).toContain(' \ue0a0 main')
   expect(texts).not.toContain('ctx ')
   expect(texts.some(text => text.startsWith('↻'))).toBe(false)
   await ui.unmount()
@@ -219,12 +219,12 @@ test('outside a git repository the project pill has no branch', async ($, on) =>
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
   const texts = await textsOf(ui)
 
-  expect(texts).toContain('painel-agents-mod')
-  expect(texts.some(text => text.includes(''))).toBe(false)
+  expect(texts).toContain('\ue5ff painel-agents-mod')
+  expect(texts.some(text => text.includes('\ue0a0'))).toBe(false)
   await ui.unmount()
 })
 
-test('the project name in white, the branch after its glyph without a dot', async ($, on) => {
+test('the project in green after its folder, the branch in blue after its glyph', async ($, on) => {
   engine(on)
   await begin($)
 
@@ -232,8 +232,8 @@ test('the project name in white, the branch after its glyph without a dot', asyn
   const found = await ui.findAll({ type: 'Text' })
   const colorOf = (text: string) => found.find(t => t.text === text)?.props.color
 
-  expect(colorOf('painel-agents-mod')).toBe('#ffffff')
-  expect(colorOf('  main')).toBe('#e2e8f0')
+  expect(colorOf('\ue5ff painel-agents-mod')).toBe('#33dd2d')
+  expect(colorOf(' \ue0a0 main')).toBe('#3a86ff')
   expect(found.some(t => t.text.includes('·'))).toBe(false)
   await ui.unmount()
 })
