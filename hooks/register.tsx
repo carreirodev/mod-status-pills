@@ -21,7 +21,10 @@ const LABEL = '#9ca3af'
 const VALUE = '#f3f4f6'
 const TIME = '#cbd5e1'
 const TRACK = '#3f3f46'
-const PROJECT = '#e2e8f0'
+const PROJECT = '#ffffff'
+const BRANCH = '#e2e8f0'
+// The Powerline branch glyph, which needs a Nerd Font in the terminal
+const BRANCH_ICON = ''
 
 // The same thresholds as the shell status line: under 50% fine, under 80% watch, then critical
 const OK = '#4ade80'
@@ -179,9 +182,15 @@ function pillsOf(shot: Snapshot, effortLevel: string | null, isCompact: boolean)
   if (shot.sevenDay !== null) {
     pills.push(limitPill('seven-day', '7D', BORDERS.sevenDay, shot.sevenDay, isCompact, dayOf))
   }
-  const place = [shot.project, shot.branch].filter(name => name !== null)
+  const place: Part[] = []
+  if (shot.project !== null) {
+    place.push(plain(shot.project, PROJECT))
+  }
+  if (shot.branch !== null) {
+    place.push(plain(`${place.length > 0 ? ' ' : ''}${BRANCH_ICON} ${shot.branch}`, BRANCH))
+  }
   if (place.length > 0) {
-    pills.push({ key: 'project', border: BORDERS.project, parts: [plain(place.join(' · '), PROJECT)] })
+    pills.push({ key: 'project', border: BORDERS.project, parts: place })
   }
   return pills.map(pill => ({ ...pill, parts: pill.parts.filter(part => part.text !== '') }))
 }
