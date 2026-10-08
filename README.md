@@ -15,7 +15,7 @@ As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí pa
 1. Numa sessão do Claude Code, digite:
 
    ```
-   /plugin install status-pills --marketplace carreirodev/mod-limits-5h-1w
+   /plugin install status-pills --marketplace carreirodev/mod-status-pills
    ```
 
 2. Responda `y` para adicionar o marketplace e escolha o escopo de usuário (o primeiro da lista) com Enter. A mensagem `Installed status-pills` confirma; a faixa aparece a partir daí, em toda sessão nova.
@@ -29,7 +29,7 @@ Para mexer no mod, use a pasta clonada em vez da instalação acima (um jeito ou
 1. Clone o repositório:
 
    ```
-   git clone https://github.com/carreirodev/mod-limits-5h-1w.git C:\Users\SEU_USUARIO\mods\status-pills
+   git clone https://github.com/carreirodev/mod-status-pills.git C:\Users\SEU_USUARIO\mods\status-pills
    ```
 
 2. Em `~/.claude/settings.json`, no bloco `env`, acrescente essa pasta a `CLAUDE_CODE_PLUGIN_DIRS`. Várias pastas são separadas por `;` no Windows:
