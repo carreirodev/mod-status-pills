@@ -1,16 +1,18 @@
 # status-pills
 
-Faixa de "pílulas" logo acima do prompt do Claude Code (no terminal) com o que a status line mostra, num visual mais limpo:
+Faixa de "pílulas" logo acima do prompt do Claude Code (no terminal e na aba Code do app desktop) com o que a status line mostra, num visual mais limpo:
 
 ![A faixa de pílulas no terminal: modelo e esforço, contexto, limites de 5 horas e 7 dias, projeto e branch](docs/preview.png)
 
 - modelo e esforço (`Opus 5.5 high`);
 - contexto usado (`ctx`), com barra;
-- limite de 5 horas, com barra e o tempo que falta para renovar (`↻ 2h54`);
-- limite de 7 dias, com barra e a data e hora da renovação (`↻ 11/10 19h`);
+- limite de 5 horas, com barra e o tempo que falta para renovar (`2h54`);
+- limite de 7 dias, com barra e a data e hora da renovação (`11/10 19h`);
 - projeto e branch.
 
 As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí para cima. Numa janela estreita as barras encurtam, e se ainda não couber as pílulas descem para uma segunda linha. O `[-]` à direita da faixa recolhe a faixa.
+
+No terminal cada pílula ocupa uma linha, com fundo colorido e pontas arredondadas; os ícones pedem uma [Nerd Font](https://www.nerdfonts.com/) no terminal. No app desktop as pílulas são desenhadas como figuras, nas cores do tema claro ou escuro.
 
 ## Instalar num computador novo
 

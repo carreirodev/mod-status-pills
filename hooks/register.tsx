@@ -2,6 +2,8 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionUsage } from 'claude-code'
 
 import type { Limit, Snapshot } from '../types'
+import { PICTURE_HEIGHT, pictureOf } from './picture'
+import type { Accent, Icon, Item, Pill } from './picture'
 
 // Reads the session again twice a minute, so the countdowns move and a
 // /model or a branch switch shows up without waiting for a turn
@@ -9,35 +11,32 @@ const TICK_MS = 30_000
 // Cells of a bar when the band has room for everything, and when it has not
 const BAR_CELLS = 8
 const COMPACT_BAR_CELLS = 5
-// A pill's frame and padding, and the gap between two pills
-const PILL_CHROME = 4
 const PILL_GAP = 1
 
 const snapshot = atom({ plugin: 'status-pills', key: 'snapshot' } as const, null)
 const effort = atom({ plugin: 'status-pills', key: 'effort' } as const, null)
 
+// The colors are made for a dark background; the desktop's light theme darkens each
 const MODEL = '#67e8f9'
 const LABEL = '#9ca3af'
 const VALUE = '#f3f4f6'
 const TIME = '#cbd5e1'
 const TRACK = '#3f3f46'
-// The oh-my-posh prompt's colors and Nerd Font glyphs: a green folder, a blue branch
+// The oh-my-posh prompt's colors: a green folder, a blue branch
 const PROJECT = '#33dd2d'
 const BRANCH = '#3a86ff'
-const FOLDER_ICON = '\ue5ff'
-const BRANCH_ICON = '\ue0a0'
 
 // The same thresholds as the shell status line: under 50% fine, under 80% watch, then critical
 const OK = '#4ade80'
 const WARN = '#facc15'
 const CRIT = '#f87171'
 
-const BORDERS = {
-  model: '#0e7490',
-  context: '#2563eb',
-  fiveHour: '#15803d',
-  sevenDay: '#7e22ce',
-  project: '#475569',
+const ACCENTS = {
+  model: { border: '#0e7490', tint: '#0f2e35', icon: MODEL },
+  context: { border: '#2563eb', tint: '#14254a', icon: '#60a5fa' },
+  fiveHour: { border: '#15803d', tint: '#11301d', icon: OK },
+  sevenDay: { border: '#7e22ce', tint: '#2a1744', icon: '#c084fc' },
+  project: { border: '#475569', tint: '#222934', icon: PROJECT },
 }
 
 const EFFORT_COLORS: Record<string, string> = {
@@ -49,12 +48,26 @@ const EFFORT_COLORS: Record<string, string> = {
 }
 const OTHER_EFFORT = '#cbd5e1'
 
-// One run of text inside a pill
-type Part = { text: string; color: string; bold: boolean }
-type Pill = { key: string; border: string; parts: Part[] }
+// The icons as Nerd Font glyphs, for the terminal
+const glyph = (code: number) => String.fromCodePoint(code)
+const GLYPHS: Record<Icon, string> = {
+  model: glyph(0xf2db),
+  context: glyph(0xf086),
+  fiveHour: glyph(0xf0e4),
+  sevenDay: glyph(0xf073),
+  reset: glyph(0xf1da),
+  folder: glyph(0xe5ff),
+  branch: glyph(0xe0a0),
+}
+// Powerline's half circles, which round off the ends of a pill's tint
+const LEFT_CAP = glyph(0xe0b6)
+const RIGHT_CAP = glyph(0xe0b4)
 
-const plain = (text: string, color: string): Part => ({ text, color, bold: false })
-const strong = (text: string, color: string): Part => ({ text, color, bold: true })
+const plain = (text: string, color: string): Item => ({ kind: 'text', text, color, bold: false })
+const strong = (text: string, color: string): Item => ({ kind: 'text', text, color, bold: true })
+const icon = (name: Icon, color: string): Item => ({ kind: 'icon', icon: name, color })
+const bar = (percent: number): Item => ({ kind: 'bar', percent, color: severity(percent) })
+const SEPARATOR: Item = { kind: 'separator' }
 
 const capitalize = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
 
@@ -93,11 +106,6 @@ function dayOf(at: number): string {
 function severity(percent: number): string {
   const rounded = Math.round(percent)
   return rounded < 50 ? OK : rounded < 80 ? WARN : CRIT
-}
-
-function bar(percent: number, cells: number): Part[] {
-  const filled = Math.min(cells, Math.max(0, Math.round((percent / 100) * cells)))
-  return [plain('▒'.repeat(filled), severity(percent)), plain('▒'.repeat(cells - filled), TRACK)]
 }
 
 function limitOf(usage: SessionUsage, kind: string): Limit | null {
@@ -144,61 +152,92 @@ async function refresh($: EngineInterface) {
 }
 
 // A window's pill: its bar and share, then when it resets, as resetOf writes it
-function limitPill(key: string, label: string, border: string, limit: Limit, isCompact: boolean, resetOf: (resetsAt: number) => string): Pill {
-  const parts = [
-    plain(`${label} `, LABEL),
-    ...bar(limit.percent, isCompact ? COMPACT_BAR_CELLS : BAR_CELLS),
-    strong(` ${Math.round(limit.percent)}%`, VALUE),
-  ]
+function limitPill(key: string, label: string, name: Icon, accent: Accent, limit: Limit, resetOf: (resetsAt: number) => string): Pill {
+  const items = [icon(name, accent.icon), plain(label, LABEL), bar(limit.percent), strong(`${Math.round(limit.percent)}%`, VALUE)]
   if (limit.resetsAt !== null) {
-    parts.push(plain(' │ ', border), plain(`↻ ${resetOf(limit.resetsAt)}`, TIME))
+    items.push(SEPARATOR, icon('reset', TIME), plain(resetOf(limit.resetsAt), TIME))
   }
-  return { key, border, parts }
+  return { key, accent, items }
 }
 
-function pillsOf(shot: Snapshot, effortLevel: string | null, isCompact: boolean): Pill[] {
+function pillsOf(shot: Snapshot, effortLevel: string | null): Pill[] {
   const pills: Pill[] = []
   if (shot.model !== null) {
-    const parts = [strong(shortModel(shot.model), MODEL)]
+    const items = [icon('model', ACCENTS.model.icon), strong(shortModel(shot.model), MODEL)]
     if (effortLevel !== null) {
-      parts.push(plain(` ${effortLevel}`, EFFORT_COLORS[effortLevel] ?? OTHER_EFFORT))
+      items.push(plain(effortLevel, EFFORT_COLORS[effortLevel] ?? OTHER_EFFORT))
     }
-    pills.push({ key: 'model', border: BORDERS.model, parts })
+    pills.push({ key: 'model', accent: ACCENTS.model, items })
   }
   if (shot.contextPercent !== null) {
     pills.push({
       key: 'context',
-      border: BORDERS.context,
-      parts: [
-        plain('ctx ', LABEL),
-        ...bar(shot.contextPercent, isCompact ? COMPACT_BAR_CELLS : BAR_CELLS),
-        strong(` ${Math.round(shot.contextPercent)}%`, VALUE),
+      accent: ACCENTS.context,
+      items: [
+        icon('context', ACCENTS.context.icon),
+        plain('ctx', LABEL),
+        bar(shot.contextPercent),
+        strong(`${Math.round(shot.contextPercent)}%`, VALUE),
       ],
     })
   }
   if (shot.fiveHour !== null) {
     // The 5-hour window by the time left, the 7-day one by the date it resets
-    pills.push(limitPill('five-hour', '5h', BORDERS.fiveHour, shot.fiveHour, isCompact, resetsAt => countdown(resetsAt - shot.at)))
+    pills.push(limitPill('five-hour', '5h', 'fiveHour', ACCENTS.fiveHour, shot.fiveHour, resetsAt => countdown(resetsAt - shot.at)))
   }
   if (shot.sevenDay !== null) {
-    pills.push(limitPill('seven-day', '7D', BORDERS.sevenDay, shot.sevenDay, isCompact, dayOf))
+    pills.push(limitPill('seven-day', '7D', 'sevenDay', ACCENTS.sevenDay, shot.sevenDay, dayOf))
   }
-  const place: Part[] = []
+  const place: Item[] = []
   if (shot.project !== null) {
-    place.push(plain(`${FOLDER_ICON} ${shot.project}`, PROJECT))
+    place.push(icon('folder', PROJECT), plain(shot.project, PROJECT))
   }
   if (shot.branch !== null) {
-    place.push(plain(`${place.length > 0 ? ' ' : ''}${BRANCH_ICON} ${shot.branch}`, BRANCH))
+    place.push(icon('branch', BRANCH), plain(shot.branch, BRANCH))
   }
   if (place.length > 0) {
-    pills.push({ key: 'project', border: BORDERS.project, parts: place })
+    pills.push({ key: 'project', accent: ACCENTS.project, items: place })
   }
-  return pills.map(pill => ({ ...pill, parts: pill.parts.filter(part => part.text !== '') }))
+  return pills
 }
 
-const widthOf = (pills: Pill[]) =>
-  pills.reduce((sum, pill) => sum + PILL_CHROME + pill.parts.reduce((n, part) => n + [...part.text].length, 0), 0) +
-  PILL_GAP * Math.max(0, pills.length - 1)
+// One run of text in the terminal; `background` is the pill's tint
+type Run = { text: string; color: string; bold: boolean; background?: string }
+
+function runsOf(item: Item, accent: Accent, cells: number): Run[] {
+  switch (item.kind) {
+    case 'text':
+      return [{ text: item.text, color: item.color, bold: item.bold }]
+    case 'icon':
+      return [{ text: GLYPHS[item.icon], color: item.color, bold: false }]
+    case 'separator':
+      return [{ text: '│', color: accent.border, bold: false }]
+    case 'bar': {
+      const filled = Math.min(cells, Math.max(0, Math.round((item.percent / 100) * cells)))
+      return [
+        { text: '▒'.repeat(filled), color: item.color, bold: false },
+        { text: '▒'.repeat(cells - filled), color: TRACK, bold: false },
+      ]
+    }
+  }
+}
+
+// A pill in the terminal: one row, a space between its items, on its tint between two rounded ends
+function terminalRuns(pill: Pill, cells: number): Run[] {
+  const { tint } = pill.accent
+  const items = pill.items.flatMap((item, index) =>
+    runsOf(item, pill.accent, cells).map((run, at) => (index > 0 && at === 0 ? { ...run, text: ` ${run.text}` } : run)),
+  )
+  const padding: Run = { text: ' ', color: tint, bold: false }
+  return [
+    { text: LEFT_CAP, color: tint, bold: false },
+    ...[padding, ...items, padding].map(run => ({ ...run, background: tint })),
+    { text: RIGHT_CAP, color: tint, bold: false },
+  ].filter(run => run.text !== '')
+}
+
+const widthOf = (rows: Run[][]) =>
+  rows.reduce((sum, runs) => sum + runs.reduce((n, run) => n + [...run.text].length, 0), 0) + PILL_GAP * Math.max(0, rows.length - 1)
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -227,22 +266,35 @@ export const register: Register = on => {
     if (e.props.hasSurvey || shot === null) {
       return next(e)
     }
-    const effortLevel = await read($, effort)
-    const full = pillsOf(shot, effortLevel, false)
-    const pills = widthOf(full) <= e.props.bodyColumns ? full : pillsOf(shot, effortLevel, true)
+    const pills = pillsOf(shot, await read($, effort))
     if (pills.length === 0) {
       return next(e)
     }
 
+    if (e.surface === 'desktop') {
+      const { Box, Svg } = $.ui.resolve(e)
+      return (
+        <Box flexDirection="row" flexWrap="wrap" columnGap={PILL_GAP}>
+          {pills.map(pill => {
+            const { source, width, alt } = pictureOf(pill)
+            return <Svg source={source} alt={alt} width={width} height={PICTURE_HEIGHT} />
+          })}
+        </Box>
+      )
+    }
+
+    const rowsOf = (cells: number) => pills.map(pill => ({ key: pill.key, runs: terminalRuns(pill, cells) }))
+    const full = rowsOf(BAR_CELLS)
+    const rows = widthOf(full.map(row => row.runs)) <= e.props.bodyColumns ? full : rowsOf(COMPACT_BAR_CELLS)
     const { Box, Text } = $.ui.resolve(e)
 
     return (
       <Box flexDirection="row" flexWrap="wrap" columnGap={PILL_GAP}>
-        {pills.map(pill => (
-          <Box key={pill.key} borderStyle="round" borderColor={pill.border} paddingX={1} flexShrink={0}>
-            {pill.parts.map(part => (
-              <Text color={part.color} bold={part.bold}>
-                {part.text}
+        {rows.map(row => (
+          <Box key={row.key} flexDirection="row" flexShrink={0}>
+            {row.runs.map(run => (
+              <Text color={run.color} bold={run.bold} {...(run.background === undefined ? {} : { backgroundColor: run.background })}>
+                {run.text}
               </Text>
             ))}
           </Box>
