@@ -93,7 +93,7 @@ function severity(percent: number): string {
 
 function bar(percent: number, cells: number): Part[] {
   const filled = Math.min(cells, Math.max(0, Math.round((percent / 100) * cells)))
-  return [plain('━'.repeat(filled), severity(percent)), plain('━'.repeat(cells - filled), TRACK)]
+  return [plain('▒'.repeat(filled), severity(percent)), plain('▒'.repeat(cells - filled), TRACK)]
 }
 
 function limitOf(usage: SessionUsage, kind: string): Limit | null {

@@ -136,8 +136,8 @@ test('a narrow band keeps the resets and shortens the bars', async ($, on) => {
     expect(texts).toContain('↻ 2h54')
     expect(texts).toContain('↻ 11/10 19h')
     // ctx at 23% of five cells: one filled, four of track
-    expect(texts).toContain('━')
-    expect(texts).toContain('━━━━')
+    expect(texts).toContain('▒')
+    expect(texts).toContain('▒▒▒▒')
     await ui.unmount()
   }
 })
@@ -158,9 +158,9 @@ test('bars take the status line colors: green under 50%, yellow under 80%, red f
   const found = await ui.findAll({ type: 'Text' })
   const colorOf = (text: string) => found.find(t => t.text === text)?.props.color
 
-  expect(colorOf('━━')).toBe(OK)
-  expect(colorOf('━━━━━')).toBe(WARN)
-  expect(colorOf('━━━━━━━')).toBe(CRIT)
+  expect(colorOf('▒▒')).toBe(OK)
+  expect(colorOf('▒▒▒▒▒')).toBe(WARN)
+  expect(colorOf('▒▒▒▒▒▒▒')).toBe(CRIT)
   await ui.unmount()
 })
 
