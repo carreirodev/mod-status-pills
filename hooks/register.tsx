@@ -16,37 +16,42 @@ const PILL_GAP = 1
 const snapshot = atom({ plugin: 'status-pills', key: 'snapshot' } as const, null)
 const effort = atom({ plugin: 'status-pills', key: 'effort' } as const, null)
 
-// The colors are made for a dark background; the desktop's light theme darkens each
-const MODEL = '#67e8f9'
-const LABEL = '#9ca3af'
-const VALUE = '#f3f4f6'
-const TIME = '#cbd5e1'
-const TRACK = '#3f3f46'
+// The colors are made for a dark background; the desktop's light theme darkens each.
+// One soft palette: every pill sits on the same surface, a pill's own hue is
+// on its icon alone, and in the limit pills green, yellow and red belong to the bars
+const MODEL = '#c6a0f6'
+const METER = '#8aadf4'
+const LABEL = '#939ab7'
+const VALUE = '#cad3f5'
+const TIME = '#b8c0e0'
+const TRACK = '#494d64'
 // The oh-my-posh prompt's colors: a green folder, a blue branch
 const PROJECT = '#33dd2d'
 const BRANCH = '#3a86ff'
 
 // The same thresholds as the shell status line: under 50% fine, under 80% watch, then critical
-const OK = '#4ade80'
-const WARN = '#facc15'
-const CRIT = '#f87171'
+const OK = '#a6da95'
+const WARN = '#eed49f'
+const CRIT = '#ed8796'
 
+// The surface every pill shares: its tint in the terminal, its border on the desktop
+const CHIP = { border: '#5b6078', tint: '#24273a' }
 const ACCENTS = {
-  model: { border: '#0e7490', tint: '#0f2e35', icon: MODEL },
-  context: { border: '#2563eb', tint: '#14254a', icon: '#60a5fa' },
-  fiveHour: { border: '#15803d', tint: '#11301d', icon: OK },
-  sevenDay: { border: '#7e22ce', tint: '#2a1744', icon: '#c084fc' },
-  project: { border: '#475569', tint: '#222934', icon: PROJECT },
+  model: { ...CHIP, icon: MODEL },
+  context: { ...CHIP, icon: METER },
+  fiveHour: { ...CHIP, icon: METER },
+  sevenDay: { ...CHIP, icon: METER },
+  project: { ...CHIP, icon: PROJECT },
 }
 
 const EFFORT_COLORS: Record<string, string> = {
-  low: '#94a3b8',
-  medium: '#22d3ee',
-  high: '#facc15',
-  xhigh: '#fb923c',
-  max: '#f43f5e',
+  low: '#8087a2',
+  medium: '#91d7e3',
+  high: '#eed49f',
+  xhigh: '#f5a97f',
+  max: '#ed8796',
 }
-const OTHER_EFFORT = '#cbd5e1'
+const OTHER_EFFORT = TIME
 
 // The icons as Nerd Font glyphs, for the terminal
 const glyph = (code: number) => String.fromCodePoint(code)

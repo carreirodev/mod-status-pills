@@ -10,12 +10,12 @@ const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
 
-const OK = '#4ade80'
-const WARN = '#facc15'
-const CRIT = '#f87171'
+const OK = '#a6da95'
+const WARN = '#eed49f'
+const CRIT = '#ed8796'
 const PROJECT = '#33dd2d'
 const BRANCH = '#3a86ff'
-const FIVE_HOUR_TINT = '#11301d'
+const CHIP_TINT = '#24273a'
 
 // The Nerd Font glyphs the terminal draws
 const glyph = (code: number) => String.fromCodePoint(code)
@@ -141,8 +141,11 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   // Five pills, each closed by its two rounded ends
   expect(texts.filter(text => text === LEFT_CAP)).toHaveLength(5)
   expect(texts.filter(text => text === RIGHT_CAP)).toHaveLength(5)
-  expect(propsOf(' 48%')?.backgroundColor).toBe(FIVE_HOUR_TINT)
+  expect(propsOf(' 48%')?.backgroundColor).toBe(CHIP_TINT)
   expect(propsOf(LEFT_CAP)?.backgroundColor).toBeUndefined()
+  // Every pill sits on the same tint, its rounded ends drawn in it
+  expect([...new Set(found.filter(t => t.props.backgroundColor !== undefined).map(t => t.props.backgroundColor))]).toEqual([CHIP_TINT])
+  expect(found.filter(t => t.text === LEFT_CAP || t.text === RIGHT_CAP).every(t => t.props.color === CHIP_TINT)).toBe(true)
   await ui.unmount()
 })
 
@@ -204,6 +207,9 @@ test('bars take the status line colors: green under 50%, yellow under 80%, red f
   expect(colorOf(' ▒▒')).toBe(OK)
   expect(colorOf(' ▒▒▒▒▒')).toBe(WARN)
   expect(colorOf(' ▒▒▒▒▒▒▒')).toBe(CRIT)
+  // In the limit pills only the bars carry a severity color: no icon or label shares it
+  const severe = found.filter(t => [OK, WARN, CRIT].includes(String(t.props.color)))
+  expect(severe.map(t => t.text)).toEqual([' ▒▒', ' ▒▒▒▒▒', ' ▒▒▒▒▒▒▒'])
   await terminal.unmount()
 
   const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(200) })
