@@ -24,7 +24,9 @@ const METER = '#8aadf4'
 const LABEL = '#939ab7'
 const VALUE = '#cad3f5'
 const TIME = '#b8c0e0'
-const TRACK = '#494d64'
+// A bar's empty cells and a pill's inner separator, kept faint on the terminal's tint
+const TRACK = '#2a2c3a'
+const RULE = '#3b3f51'
 // The oh-my-posh prompt's colors: a green folder, a blue branch
 const PROJECT = '#33dd2d'
 const BRANCH = '#3a86ff'
@@ -34,8 +36,9 @@ const OK = '#a6da95'
 const WARN = '#eed49f'
 const CRIT = '#ed8796'
 
-// The surface every pill shares: its tint in the terminal, its border on the desktop
-const CHIP = { border: '#5b6078', tint: '#24273a' }
+// The surface every pill shares: its tint in the terminal, a step above the
+// terminal's own background, and its border on the desktop
+const CHIP = { border: '#5b6078', tint: '#16171f' }
 const ACCENTS = {
   model: { ...CHIP, icon: MODEL },
   context: { ...CHIP, icon: METER },
@@ -209,14 +212,14 @@ function pillsOf(shot: Snapshot, effortLevel: string | null): Pill[] {
 // One run of text in the terminal; `background` is the pill's tint
 type Run = { text: string; color: string; bold: boolean; background?: string }
 
-function runsOf(item: Item, accent: Accent, cells: number): Run[] {
+function runsOf(item: Item, cells: number): Run[] {
   switch (item.kind) {
     case 'text':
       return [{ text: item.text, color: item.color, bold: item.bold }]
     case 'icon':
       return [{ text: GLYPHS[item.icon], color: item.color, bold: false }]
     case 'separator':
-      return [{ text: '│', color: accent.border, bold: false }]
+      return [{ text: '│', color: RULE, bold: false }]
     case 'bar': {
       const filled = Math.min(cells, Math.max(0, Math.round((item.percent / 100) * cells)))
       return [
@@ -231,7 +234,7 @@ function runsOf(item: Item, accent: Accent, cells: number): Run[] {
 function terminalRuns(pill: Pill, cells: number): Run[] {
   const { tint } = pill.accent
   const items = pill.items.flatMap((item, index) =>
-    runsOf(item, pill.accent, cells).map((run, at) => (index > 0 && at === 0 ? { ...run, text: ` ${run.text}` } : run)),
+    runsOf(item, cells).map((run, at) => (index > 0 && at === 0 ? { ...run, text: ` ${run.text}` } : run)),
   )
   const padding: Run = { text: ' ', color: tint, bold: false }
   return [

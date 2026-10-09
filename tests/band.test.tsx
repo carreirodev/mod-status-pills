@@ -15,7 +15,9 @@ const WARN = '#eed49f'
 const CRIT = '#ed8796'
 const PROJECT = '#33dd2d'
 const BRANCH = '#3a86ff'
-const CHIP_TINT = '#24273a'
+const CHIP_TINT = '#16171f'
+const TRACK = '#2a2c3a'
+const RULE = '#3b3f51'
 
 // The Nerd Font glyphs the terminal draws
 const glyph = (code: number) => String.fromCodePoint(code)
@@ -146,6 +148,9 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   // Every pill sits on the same tint, its rounded ends drawn in it
   expect([...new Set(found.filter(t => t.props.backgroundColor !== undefined).map(t => t.props.backgroundColor))]).toEqual([CHIP_TINT])
   expect(found.filter(t => t.text === LEFT_CAP || t.text === RIGHT_CAP).every(t => t.props.color === CHIP_TINT)).toBe(true)
+  // The empty cells of a bar and the separator stay faint on it: ctx at 23% leaves six of eight
+  expect(propsOf('▒▒▒▒▒▒')?.color).toBe(TRACK)
+  expect(found.filter(t => t.text === ' │').map(t => t.props.color)).toEqual([RULE, RULE])
   await ui.unmount()
 })
 
