@@ -26,7 +26,27 @@ No WSL e no Linux, o Claude Code só usa cores reais quando o terminal anuncia q
 
 2. Responda `y` para adicionar o marketplace e escolha o escopo de usuário (o primeiro da lista) com Enter. A mensagem `Installed status-pills` confirma; a faixa aparece a partir daí, em toda sessão nova.
 
-Para receber uma versão nova depois: `/plugin marketplace update status-pills` numa sessão.
+## Atualizar para uma versão nova
+
+A atualização não é automática: cada computador que instalou pelo marketplace precisa pedir a versão nova.
+
+1. No terminal, fora do Claude Code, rode:
+
+   ```
+   claude plugin update status-pills@status-pills
+   ```
+
+   A resposta diz de qual versão para qual foi, por exemplo `updated from 0.2.2 to 0.2.3`. Se já estiver na última, ela diz `already at the latest version`.
+
+2. Abra uma sessão nova do Claude Code, ou rode `/reload-plugins` numa sessão já aberta. A sessão que estava aberta durante a atualização continua com a versão antiga até isso.
+
+Dentro de uma sessão, `/plugin marketplace update status-pills` faz o mesmo que o passo 1.
+
+O WSL tem a sua própria instalação do Claude Code, separada da do Windows: rode o passo 1 dentro do WSL também.
+
+Para conferir a versão instalada, rode `claude plugin list` e procure `status-pills@status-pills`.
+
+Para não ter de lembrar: em `/plugin`, na aba **Marketplaces**, escolha `status-pills` e depois **Enable auto-update**. Daí em diante, cada sessão nova busca a versão nova sozinha e avisa com `Plugin updated: status-pills · Run /reload-plugins to apply`.
 
 ## Editar o mod
 
