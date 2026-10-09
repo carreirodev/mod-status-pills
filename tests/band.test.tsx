@@ -15,9 +15,12 @@ const WARN = '#eed49f'
 const CRIT = '#ed8796'
 const PROJECT = '#33dd2d'
 const BRANCH = '#3a86ff'
-const CHIP_TINT = '#16171f'
-const TRACK = '#2a2c3a'
-const RULE = '#3b3f51'
+const CHIP_TINT = '#1c1c1c'
+const TRACK = '#303030'
+const RULE = '#444444'
+
+// A gray with the same red, green and blue, which a 256-color terminal keeps gray
+const isGray = (hex: unknown) => typeof hex === 'string' && /^#([0-9a-f]{2})\1\1$/i.test(hex)
 
 // The Nerd Font glyphs the terminal draws
 const glyph = (code: number) => String.fromCodePoint(code)
@@ -151,6 +154,13 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   // The empty cells of a bar and the separator stay faint on it: ctx at 23% leaves six of eight
   expect(propsOf('▒▒▒▒▒▒')?.color).toBe(TRACK)
   expect(found.filter(t => t.text === ' │').map(t => t.props.color)).toEqual([RULE, RULE])
+  // The surface, its ends, the empty cells and the separators are all grays
+  const surface = [
+    ...found.filter(t => t.props.backgroundColor !== undefined).map(t => t.props.backgroundColor),
+    ...found.filter(t => t.text === LEFT_CAP || t.text === RIGHT_CAP || t.text === ' │').map(t => t.props.color),
+    propsOf('▒▒▒▒▒▒')?.color,
+  ]
+  expect(surface.every(isGray)).toBe(true)
   await ui.unmount()
 })
 
