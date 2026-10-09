@@ -299,8 +299,9 @@ export const register: Register = on => {
     const rows = widthOf(full.map(row => row.runs)) <= e.props.bodyColumns ? full : rowsOf(COMPACT_BAR_CELLS)
     const { Box, Text } = $.ui.resolve(e)
 
+    // A blank row on top keeps the spinner and Claude's notices off the pills
     return (
-      <Box flexDirection="row" flexWrap="wrap" columnGap={PILL_GAP}>
+      <Box flexDirection="row" flexWrap="wrap" columnGap={PILL_GAP} marginTop={1}>
         {rows.map(row => (
           <Box key={row.key} flexDirection="row" flexShrink={0}>
             {row.runs.map(run => (

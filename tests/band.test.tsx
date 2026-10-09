@@ -164,6 +164,17 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   await ui.unmount()
 })
 
+test('the terminal band leaves a blank row above the pills, clear of the spinner', async ($, on) => {
+  engine(on)
+  await begin($)
+
+  for (const columns of [200, 80]) {
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(columns) })
+    expect(await ui.drawn()).toMatchObject({ type: 'Box', props: { marginTop: 1 } })
+    await ui.unmount()
+  }
+})
+
 test('the desktop draws every pill as a picture holding the same words', async ($, on) => {
   engine(on)
   await begin($)
