@@ -9,7 +9,7 @@ import type { Accent, Icon, Item, Pill } from './picture'
 // /model or a branch switch shows up without waiting for a turn
 const TICK_MS = 30_000
 // Cells of a bar when the band has room for everything, and when it has not
-const BAR_CELLS = 8
+const BAR_CELLS = 6
 const COMPACT_BAR_CELLS = 5
 const PILL_GAP = 1
 
@@ -297,11 +297,13 @@ export const register: Register = on => {
     const rowsOf = (cells: number) => pills.map(pill => ({ key: pill.key, runs: terminalRuns(pill, cells) }))
     const full = rowsOf(BAR_CELLS)
     const rows = widthOf(full.map(row => row.runs)) <= e.props.bodyColumns ? full : rowsOf(COMPACT_BAR_CELLS)
+    // Pills that spill onto a second row center both rows, instead of leaving the second one ragged
+    const wraps = widthOf(rows.map(row => row.runs)) > e.props.bodyColumns
     const { Box, Text } = $.ui.resolve(e)
 
     // A blank row on top keeps the spinner and Claude's notices off the pills
     return (
-      <Box flexDirection="row" flexWrap="wrap" columnGap={PILL_GAP} marginTop={1}>
+      <Box flexDirection="row" flexWrap="wrap" justifyContent={wraps ? 'center' : 'flex-start'} columnGap={PILL_GAP} marginTop={1}>
         {rows.map(row => (
           <Box key={row.key} flexDirection="row" flexShrink={0}>
             {row.runs.map(run => (

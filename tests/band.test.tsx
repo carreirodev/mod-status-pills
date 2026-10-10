@@ -151,14 +151,14 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   // Every pill sits on the same tint, its rounded ends drawn in it
   expect([...new Set(found.filter(t => t.props.backgroundColor !== undefined).map(t => t.props.backgroundColor))]).toEqual([CHIP_TINT])
   expect(found.filter(t => t.text === LEFT_CAP || t.text === RIGHT_CAP).every(t => t.props.color === CHIP_TINT)).toBe(true)
-  // The empty cells of a bar and the separator stay faint on it: ctx at 23% leaves six of eight
-  expect(propsOf('▒▒▒▒▒▒')?.color).toBe(TRACK)
+  // The empty cells of a bar and the separator stay faint on it: ctx at 23% leaves five of six
+  expect(propsOf('▒▒▒▒▒')?.color).toBe(TRACK)
   expect(found.filter(t => t.text === ' │').map(t => t.props.color)).toEqual([RULE, RULE])
   // The surface, its ends, the empty cells and the separators are all grays
   const surface = [
     ...found.filter(t => t.props.backgroundColor !== undefined).map(t => t.props.backgroundColor),
     ...found.filter(t => t.text === LEFT_CAP || t.text === RIGHT_CAP || t.text === ' │').map(t => t.props.color),
-    propsOf('▒▒▒▒▒▒')?.color,
+    propsOf('▒▒▒▒▒')?.color,
   ]
   expect(surface.every(isGray)).toBe(true)
   await ui.unmount()
@@ -173,6 +173,21 @@ test('the terminal band leaves a blank row above the pills, clear of the spinner
     expect(await ui.drawn()).toMatchObject({ type: 'Box', props: { marginTop: 1 } })
     await ui.unmount()
   }
+})
+
+test('a terminal band that spills onto a second row centers both rows', async ($, on) => {
+  engine(on)
+  await begin($)
+
+  // At 200 columns every pill fits on one row, kept to the left
+  const wide = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
+  expect(await wide.drawn()).toMatchObject({ type: 'Box', props: { justifyContent: 'flex-start' } })
+  await wide.unmount()
+
+  // At 80 even the short bars leave the pills too wide for one row
+  const narrow = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(80) })
+  expect(await narrow.drawn()).toMatchObject({ type: 'Box', props: { justifyContent: 'center' } })
+  await narrow.unmount()
 })
 
 test('the desktop draws every pill as a picture holding the same words', async ($, on) => {
@@ -231,11 +246,11 @@ test('bars take the status line colors: green under 50%, yellow under 80%, red f
   const colorOf = (text: string) => found.find(t => t.text === text)?.props.color
 
   expect(colorOf(' ▒▒')).toBe(OK)
-  expect(colorOf(' ▒▒▒▒▒')).toBe(WARN)
-  expect(colorOf(' ▒▒▒▒▒▒▒')).toBe(CRIT)
+  expect(colorOf(' ▒▒▒▒')).toBe(WARN)
+  expect(colorOf(' ▒▒▒▒▒')).toBe(CRIT)
   // In the limit pills only the bars carry a severity color: no icon or label shares it
   const severe = found.filter(t => [OK, WARN, CRIT].includes(String(t.props.color)))
-  expect(severe.map(t => t.text)).toEqual([' ▒▒', ' ▒▒▒▒▒', ' ▒▒▒▒▒▒▒'])
+  expect(severe.map(t => t.text)).toEqual([' ▒▒', ' ▒▒▒▒', ' ▒▒▒▒▒'])
   await terminal.unmount()
 
   const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(200) })
