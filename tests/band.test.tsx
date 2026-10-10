@@ -190,6 +190,39 @@ test('a terminal band that spills onto a second row centers both rows', async ($
   await narrow.unmount()
 })
 
+test('the desktop centers wrapped rows and keeps a single row to the left', async ($, on) => {
+  engine(on)
+  await begin($)
+
+  // The desktop lays the pictures out itself: a column that does not stretch
+  // its row lets one row hug the left, while a wrapped row spans the band
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(200) })
+  expect(await ui.drawn()).toMatchObject({
+    type: 'Box',
+    props: { flexDirection: 'column', alignItems: 'flex-start' },
+    children: [{ type: 'Box', props: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' } }],
+  })
+  await ui.unmount()
+})
+
+test('each desktop picture leaves two clear pixels above and below its pill', async ($, on) => {
+  engine(on)
+  await begin($)
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(200) })
+  const found = await ui.findAll({ type: 'Svg' })
+
+  expect(found).toHaveLength(5)
+  for (const svg of found) {
+    const source = String(svg.props.source)
+    // A 22-pixel pill in a 26-pixel picture, its view box starting 2 above it
+    expect(svg.props.height).toBe(26)
+    expect(source).toMatch(/^<svg [^>]*height="26" viewBox="0 -2 \d+ 26">/)
+    expect(source).toContain('height="21" rx="10.5"')
+  }
+  await ui.unmount()
+})
+
 test('the desktop draws every pill as a picture holding the same words', async ($, on) => {
   engine(on)
   await begin($)

@@ -10,7 +10,7 @@ Faixa de "pílulas" logo acima do prompt do Claude Code (no terminal e na aba Co
 - limite de 7 dias, com barra e a data e hora da renovação (`11/10 19h`);
 - projeto e branch.
 
-As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí para cima. Numa janela estreita as barras encurtam, e se ainda não couber as pílulas descem para uma segunda linha, com as duas linhas centralizadas no terminal. O `[-]` à direita da faixa recolhe a faixa.
+As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí para cima. Numa janela estreita as barras encurtam, e se ainda não couber as pílulas descem para uma segunda linha, com as duas linhas centralizadas. O `[-]` à direita da faixa recolhe a faixa.
 
 No terminal cada pílula ocupa uma linha, com fundo colorido e pontas arredondadas; os ícones pedem uma [Nerd Font](https://www.nerdfonts.com/) no terminal. No app desktop as pílulas são desenhadas como figuras, nas cores do tema claro ou escuro.
 

@@ -29,7 +29,11 @@ export type Accent = { border: string; tint: string; icon: string }
 export type Pill = { key: string; accent: Accent; items: Item[] }
 
 // Sizes in CSS pixels
-export const PICTURE_HEIGHT = 22
+const PILL_HEIGHT = 22
+// Clear space above and below the pill inside its picture: rows that wrap sit
+// twice this apart, finer than the band's gaps, which count whole cells
+const ROW_INSET = 2
+export const PICTURE_HEIGHT = PILL_HEIGHT + 2 * ROW_INSET
 const PADDING = 9
 const GAP = 5
 const SEPARATOR_GAP = 7
@@ -74,7 +78,7 @@ const escapeXml = (text: string) => text.replace(/[&<>"']/g, char => `&#${char.c
 
 // The pill as an SVG document, its width, and its words for a reader without the picture
 export function pictureOf(pill: Pill): { source: string; width: number; alt: string } {
-  const middle = PICTURE_HEIGHT / 2
+  const middle = PILL_HEIGHT / 2
   // Each color gets a class: the light theme's shade by default, its own under a dark theme
   const colors: string[] = []
   const classOf = (color: string) => {
@@ -133,9 +137,10 @@ export function pictureOf(pill: Pill): { source: string; width: number; alt: str
   const light = colors.map((color, at) => `.c${at}{color:${lightThemeOf(color)}}`).join('')
   const dark = colors.map((color, at) => `.c${at}{color:${color}}`).join('')
   const style = `<style>text{font-family:${FONT};font-size:${FONT_SIZE}px}${light}@media (prefers-color-scheme: dark){${dark}}</style>`
-  const frame = `<rect x="0.5" y="0.5" width="${width - 1}" height="${PICTURE_HEIGHT - 1}" rx="${(PICTURE_HEIGHT - 1) / 2}" fill="${pill.accent.border}" fill-opacity="0.12" stroke="${pill.accent.border}" stroke-opacity="0.5"/>`
+  const frame = `<rect x="0.5" y="0.5" width="${width - 1}" height="${PILL_HEIGHT - 1}" rx="${(PILL_HEIGHT - 1) / 2}" fill="${pill.accent.border}" fill-opacity="0.12" stroke="${pill.accent.border}" stroke-opacity="0.5"/>`
+  // The pill is drawn from 0 to PILL_HEIGHT; the view box starts ROW_INSET above it
   return {
-    source: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${PICTURE_HEIGHT}" viewBox="0 0 ${width} ${PICTURE_HEIGHT}">${style}${frame}${marks.join('')}</svg>`,
+    source: `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${PICTURE_HEIGHT}" viewBox="0 ${-ROW_INSET} ${width} ${PICTURE_HEIGHT}">${style}${frame}${marks.join('')}</svg>`,
     width,
     alt: words.join(' '),
   }

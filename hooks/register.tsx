@@ -284,12 +284,16 @@ export const register: Register = on => {
 
     if (e.surface === 'desktop') {
       const { Box, Svg } = $.ui.resolve(e)
+      // The row hugs its pills: on one row it is only as wide as they are, kept
+      // to the left; once they wrap it spans the band and centers every row
       return (
-        <Box flexDirection="row" flexWrap="wrap" columnGap={PILL_GAP}>
-          {pills.map(pill => {
-            const { source, width, alt } = pictureOf(pill)
-            return <Svg source={source} alt={alt} width={width} height={PICTURE_HEIGHT} />
-          })}
+        <Box flexDirection="column" alignItems="flex-start">
+          <Box flexDirection="row" flexWrap="wrap" justifyContent="center" columnGap={PILL_GAP}>
+            {pills.map(pill => {
+              const { source, width, alt } = pictureOf(pill)
+              return <Svg source={source} alt={alt} width={width} height={PICTURE_HEIGHT} />
+            })}
+          </Box>
         </Box>
       )
     }
