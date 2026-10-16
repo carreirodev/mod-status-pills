@@ -8,7 +8,7 @@ import type { Accent, Icon, Item, Pill } from './picture'
 // Reads the session again twice a minute, so the countdowns move and a
 // /model or a branch switch shows up without waiting for a turn
 const TICK_MS = 30_000
-// Cells of a bar when the band has room for everything, and when it has not
+// Cells of a bar when the row has room for everything, and when it has not
 const BAR_CELLS = 6
 const COMPACT_BAR_CELLS = 5
 const PILL_GAP = 1
@@ -272,18 +272,19 @@ export const register: Register = on => {
     return yield* next(e)
   })
 
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
     const shot = await read($, snapshot)
-    if (e.props.hasSurvey || shot === null) {
+    if (shot === null) {
       return next(e)
     }
     const pills = pillsOf(shot, await read($, effort))
     if (pills.length === 0) {
       return next(e)
     }
-    // why: the band has one instance shared by every mod; answering without
-    // next would drop what the plugins beneath draw there (image-view's
-    // thumbnails), so their tree goes above the pills, which stay by the prompt
+    // why: the hint line has one instance shared by every mod; answering without
+    // next would drop the engine's own line (the permission mode, the shortcuts)
+    // and what the plugins beneath draw under it (launchpad's button), so their
+    // tree goes above the pills
     const below = await next(e)
 
     if (e.surface === 'desktop') {
@@ -305,18 +306,20 @@ export const register: Register = on => {
       )
     }
 
+    // why: the hint line, unlike the band above the prompt, is handed no width of
+    // its own; until the terminal has measured, the full bars on one row are drawn
+    const columns = e.viewport?.columns ?? Number.POSITIVE_INFINITY
     const rowsOf = (cells: number) => pills.map(pill => ({ key: pill.key, runs: terminalRuns(pill, cells) }))
     const full = rowsOf(BAR_CELLS)
-    const rows = widthOf(full.map(row => row.runs)) <= e.props.bodyColumns ? full : rowsOf(COMPACT_BAR_CELLS)
+    const rows = widthOf(full.map(row => row.runs)) <= columns ? full : rowsOf(COMPACT_BAR_CELLS)
     // Pills that spill onto a second row center both rows, instead of leaving the second one ragged
-    const wraps = widthOf(rows.map(row => row.runs)) > e.props.bodyColumns
+    const wraps = widthOf(rows.map(row => row.runs)) > columns
     const { Box, Text } = $.ui.resolve(e)
 
-    // A blank row on top keeps the spinner and Claude's notices off the pills
     return (
       <Box flexDirection="column">
         {below}
-        <Box flexDirection="row" flexWrap="wrap" justifyContent={wraps ? 'center' : 'flex-start'} columnGap={PILL_GAP} marginTop={1}>
+        <Box flexDirection="row" flexWrap="wrap" justifyContent={wraps ? 'center' : 'flex-start'} columnGap={PILL_GAP}>
           {rows.map(row => (
             <Box key={row.key} flexDirection="row" flexShrink={0}>
               {row.runs.map(run => (

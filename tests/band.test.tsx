@@ -31,17 +31,26 @@ const BRANCH_ICON = glyph(0xe0a0)
 const LEFT_CAP = glyph(0xe0b6)
 const RIGHT_CAP = glyph(0xe0b4)
 
-const band = (bodyColumns: number, hasSurvey = false) => ({
+// The engine's own hint line under the prompt
+const HINT = '⏵⏵ auto mode on (shift+tab to cycle)'
+
+const hint = (columns: number) => ({
+  component: 'PromptHint' as const,
+  props: { isDraft: false, isWorking: false, hint: HINT },
+  viewport: { columns, rows: 40 },
+})
+
+const band = {
   component: 'AbovePrompt' as const,
   props: {
-    hasSurvey,
+    hasSurvey: true,
     isWorking: false,
     maxRows: 12,
-    bodyColumns,
+    bodyColumns: 195,
     scroll: { offset: 0, bodyRows: 11 },
     view: {},
   },
-})
+}
 
 const iso = (at: number) => new Date(at).toISOString()
 
@@ -57,9 +66,9 @@ const USAGE: SessionUsage = {
   cost: { usd: 1.5 },
 }
 
-// The engine beneath the plugin, answering as a session would; `below` is a
-// text drawn in the band beneath the plugin, by a survey or by another mod
-function engine(on: On, options: { branch?: string | null; below?: string } = {}) {
+// The engine beneath the plugin, answering as a session would; `under` is a
+// text another mod beneath the plugin draws under the engine's hint line
+function engine(on: On, options: { branch?: string | null; under?: string } = {}) {
   const beneath = {
     usage: USAGE,
     clock: mock.clock(on, { now: NOW }),
@@ -78,13 +87,23 @@ function engine(on: On, options: { branch?: string | null; below?: string } = {}
       isStderrTruncated: false,
     },
   }))
-  on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
-    if (options.below === undefined) {
-      // why: with no survey and no other mod the engine's own node draws nothing
-      return { type: 'engine', ref: 0 }
+  on('ui.render', { component: 'PromptHint' }, ($, e) => {
+    const { Box, Text } = $.ui.resolve(e)
+    const line = <Text>{e.props.hint}</Text>
+    if (options.under === undefined) {
+      return line
     }
+    return (
+      <Box flexDirection="column">
+        {line}
+        <Text>{options.under}</Text>
+      </Box>
+    )
+  })
+  // A survey in the band above the prompt
+  on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
     const { Text } = $.ui.resolve(e)
-    return <Text>{options.below}</Text>
+    return <Text>survey</Text>
   })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.measure', ($, e) => ({ changed: e.changed }))
@@ -119,7 +138,7 @@ async function step($: Engine, effort: 'low' | 'medium' | 'high' | 'xhigh' | 'ma
   }
 }
 
-// The band as drawn: what the plugins beneath drew, then the pills' own row
+// The hint line as drawn: what the engine and the plugins beneath drew, then the pills' own row
 const withPills = (row: object) => ({ type: 'Box', props: { flexDirection: 'column' }, children: [expect.anything(), row] })
 
 type Found = { text: string; props: { color?: unknown; backgroundColor?: unknown; source?: unknown; alt?: unknown } }
@@ -138,7 +157,7 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   await begin($)
   await step($, 'high')
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
   const found = await ui.findAll({ type: 'Text' })
   const texts = found.map(t => t.text)
   const propsOf = (text: string) => found.find(t => t.text === text)?.props
@@ -176,15 +195,32 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   await ui.unmount()
 })
 
-test('the terminal band leaves a blank row above the pills, clear of the spinner', async ($, on) => {
+test("the pills go right under the engine's hint line, which stays as it draws it", async ($, on) => {
   engine(on)
   await begin($)
 
-  for (const columns of [200, 80]) {
-    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(columns) })
-    expect(await ui.drawn()).toMatchObject(withPills({ type: 'Box', props: { marginTop: 1 } }))
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...hint(200) })
+    expect(await ui.drawn()).toMatchObject(withPills({ type: 'Box' }))
+    expect(await ui.drawn()).toMatchObject({ children: [{ type: 'Text' }, expect.anything()] })
+    expect((await textsOf(ui))[0]).toBe(HINT)
+    if (surface === 'terminal') {
+      expect(await ui.drawn()).not.toMatchObject(withPills({ type: 'Box', props: { marginTop: 1 } }))
+    }
     await ui.unmount()
   }
+})
+
+test('a terminal that has not measured draws the full bars on one row', async ($, on) => {
+  engine(on)
+  await begin($)
+
+  const { viewport: _, ...unmeasured } = hint(80)
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...unmeasured })
+  expect(await ui.drawn()).toMatchObject(withPills({ type: 'Box', props: { justifyContent: 'flex-start' } }))
+  // ctx at 23% of six cells: one filled, five of track
+  expect(await textsOf(ui)).toContain('▒▒▒▒▒')
+  await ui.unmount()
 })
 
 test('a terminal band that spills onto a second row centers both rows', async ($, on) => {
@@ -192,12 +228,12 @@ test('a terminal band that spills onto a second row centers both rows', async ($
   await begin($)
 
   // At 200 columns every pill fits on one row, kept to the left
-  const wide = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
+  const wide = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
   expect(await wide.drawn()).toMatchObject(withPills({ type: 'Box', props: { justifyContent: 'flex-start' } }))
   await wide.unmount()
 
   // At 80 even the short bars leave the pills too wide for one row
-  const narrow = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(80) })
+  const narrow = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(80) })
   expect(await narrow.drawn()).toMatchObject(withPills({ type: 'Box', props: { justifyContent: 'center' } }))
   await narrow.unmount()
 })
@@ -208,7 +244,7 @@ test('the desktop centers wrapped rows and keeps a single row to the left', asyn
 
   // The desktop lays the pictures out itself: a column that does not stretch
   // its row lets one row hug the left, while a wrapped row spans the band
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
   expect(await ui.drawn()).toMatchObject(
     withPills({
       type: 'Box',
@@ -223,7 +259,7 @@ test('each desktop picture leaves two clear pixels above and below its pill', as
   engine(on)
   await begin($)
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
   const found = await ui.findAll({ type: 'Svg' })
 
   expect(found).toHaveLength(5)
@@ -242,7 +278,7 @@ test('the desktop draws every pill as a picture holding the same words', async (
   await begin($)
   await step($, 'high')
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
   const pictures = await picturesOf(ui)
 
   expect(pictures.map(picture => picture.alt)).toEqual([
@@ -257,7 +293,8 @@ test('the desktop draws every pill as a picture holding the same words', async (
     // Its colors switch with the desktop's theme
     expect(picture.source).toContain('@media (prefers-color-scheme: dark)')
   }
-  expect(await textsOf(ui)).toEqual([])
+  // The engine's hint line is the only text: the pills are pictures alone
+  expect(await textsOf(ui)).toEqual([HINT])
   await ui.unmount()
 })
 
@@ -265,7 +302,7 @@ test('a narrow terminal band keeps the resets and shortens the bars', async ($, 
   engine(on)
   await begin($)
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(80) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(80) })
   const texts = await textsOf(ui)
 
   expect(texts).toContain(' 2h54')
@@ -288,7 +325,7 @@ test('bars take the status line colors: green under 50%, yellow under 80%, red f
   }
   await begin($)
 
-  const terminal = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
+  const terminal = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
   const found = await terminal.findAll({ type: 'Text' })
   const colorOf = (text: string) => found.find(t => t.text === text)?.props.color
 
@@ -300,7 +337,7 @@ test('bars take the status line colors: green under 50%, yellow under 80%, red f
   expect(severe.map(t => t.text)).toEqual([' ▒▒', ' ▒▒▒▒', ' ▒▒▒▒▒'])
   await terminal.unmount()
 
-  const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(200) })
+  const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
   const sourceOf = async (alt: string) => (await picturesOf(desktop)).find(picture => picture.alt.startsWith(alt))?.source
 
   expect(await sourceOf('ctx')).toContain(OK)
@@ -314,7 +351,7 @@ test('before the first response: the model and the project alone', async ($, on)
   beneath.usage = { ...USAGE, context: { window: 1_000_000 }, rateLimits: [] }
   await begin($)
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
   const texts = await textsOf(ui)
 
   expect(texts).toContain(' Opus 5.5')
@@ -331,7 +368,7 @@ test("a subagent's effort does not replace the main loop's", async ($, on) => {
   await step($, 'medium')
   await step($, 'max', 'a1')
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
   const texts = await textsOf(ui)
 
   expect(texts).toContain(' medium')
@@ -343,7 +380,7 @@ test('the countdowns move with the clock, and a new measurement shows new number
   const beneath = engine(on)
   await begin($)
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
   await beneath.clock.advance(4 * MINUTE)
   expect(await textsOf(ui)).toContain(' 2h50')
 
@@ -360,7 +397,7 @@ test('outside a git repository the project pill has no branch', async ($, on) =>
   engine(on, { branch: null })
   await begin($)
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
   const texts = await textsOf(ui)
 
   expect(texts).toContain(' painel-agents-mod')
@@ -372,7 +409,7 @@ test('the project in green after its folder, the branch in blue after its glyph'
   engine(on)
   await begin($)
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
   const found = await ui.findAll({ type: 'Text' })
   const colorOf = (text: string) => found.find(t => t.text === text)?.props.color
 
@@ -388,7 +425,7 @@ test('the desktop writes a branch name into its picture as text, never as markup
   engine(on, { branch: 'feat/a&b<c>' })
   await begin($)
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
   const project = (await picturesOf(ui)).find(picture => picture.alt.startsWith('painel-agents-mod'))
 
   expect(project?.alt).toBe('painel-agents-mod feat/a&b<c>')
@@ -397,21 +434,21 @@ test('the desktop writes a branch name into its picture as text, never as markup
   await ui.unmount()
 })
 
-test("keeps another mod's band, above the pills", async ($, on) => {
-  // why: the band is one instance shared by every mod; image-view draws its
-  // thumbnails there, and the pills used to answer without it
-  engine(on, { below: '[Image #1]' })
+test('keeps what another mod draws under the hint line, above the pills', async ($, on) => {
+  // why: the hint line is one instance shared by every mod; launchpad draws
+  // its button under the engine's line, and answering without next drops it
+  engine(on, { under: '◆ pad' })
   await begin($)
 
   for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...band(200) })
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...hint(200) })
 
     expect(await ui.drawn()).toMatchObject({
       type: 'Box',
       props: { flexDirection: 'column' },
-      children: [{ type: 'Text' }, { type: 'Box' }],
+      children: [{ type: 'Box', children: [{ type: 'Text' }, { type: 'Text' }] }, { type: 'Box' }],
     })
-    expect(await textsOf(ui)).toContain('[Image #1]')
+    expect((await textsOf(ui)).slice(0, 2)).toEqual([HINT, '◆ pad'])
     if (surface === 'terminal') {
       expect(await textsOf(ui)).toContain(' Opus 5.5')
     } else {
@@ -421,17 +458,14 @@ test("keeps another mod's band, above the pills", async ($, on) => {
   }
 })
 
-test('yields the band to a survey', async ($, on) => {
-  // The engine draws the survey beneath the plugin
-  engine(on, { below: 'survey' })
+test('leaves the band above the prompt to the engine and the other mods', async ($, on) => {
+  engine(on)
   await begin($)
 
   for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...band(200, true) })
-    const texts = await textsOf(ui)
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...band })
 
-    expect(texts).toContain('survey')
-    expect(texts).not.toContain(' Opus 5.5')
+    expect(await textsOf(ui)).toEqual(['survey'])
     expect(await picturesOf(ui)).toEqual([])
     await ui.unmount()
   }
