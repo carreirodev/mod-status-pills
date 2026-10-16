@@ -1,3 +1,5 @@
 # Declarations the engine lays beside the mod each time it loads it
 .claude-plugin/types/
 node_modules/
+# The tlc harness's local state
+.tlc/
