@@ -281,18 +281,25 @@ export const register: Register = on => {
     if (pills.length === 0) {
       return next(e)
     }
+    // why: the band has one instance shared by every mod; answering without
+    // next would drop what the plugins beneath draw there (image-view's
+    // thumbnails), so their tree goes above the pills, which stay by the prompt
+    const below = await next(e)
 
     if (e.surface === 'desktop') {
       const { Box, Svg } = $.ui.resolve(e)
       // The row hugs its pills: on one row it is only as wide as they are, kept
       // to the left; once they wrap it spans the band and centers every row
       return (
-        <Box flexDirection="column" alignItems="flex-start">
-          <Box flexDirection="row" flexWrap="wrap" justifyContent="center" columnGap={PILL_GAP}>
-            {pills.map(pill => {
-              const { source, width, alt } = pictureOf(pill)
-              return <Svg source={source} alt={alt} width={width} height={PICTURE_HEIGHT} />
-            })}
+        <Box flexDirection="column">
+          {below}
+          <Box flexDirection="column" alignItems="flex-start">
+            <Box flexDirection="row" flexWrap="wrap" justifyContent="center" columnGap={PILL_GAP}>
+              {pills.map(pill => {
+                const { source, width, alt } = pictureOf(pill)
+                return <Svg source={source} alt={alt} width={width} height={PICTURE_HEIGHT} />
+              })}
+            </Box>
           </Box>
         </Box>
       )
@@ -307,16 +314,19 @@ export const register: Register = on => {
 
     // A blank row on top keeps the spinner and Claude's notices off the pills
     return (
-      <Box flexDirection="row" flexWrap="wrap" justifyContent={wraps ? 'center' : 'flex-start'} columnGap={PILL_GAP} marginTop={1}>
-        {rows.map(row => (
-          <Box key={row.key} flexDirection="row" flexShrink={0}>
-            {row.runs.map(run => (
-              <Text color={run.color} bold={run.bold} {...(run.background === undefined ? {} : { backgroundColor: run.background })}>
-                {run.text}
-              </Text>
-            ))}
-          </Box>
-        ))}
+      <Box flexDirection="column">
+        {below}
+        <Box flexDirection="row" flexWrap="wrap" justifyContent={wraps ? 'center' : 'flex-start'} columnGap={PILL_GAP} marginTop={1}>
+          {rows.map(row => (
+            <Box key={row.key} flexDirection="row" flexShrink={0}>
+              {row.runs.map(run => (
+                <Text color={run.color} bold={run.bold} {...(run.background === undefined ? {} : { backgroundColor: run.background })}>
+                  {run.text}
+                </Text>
+              ))}
+            </Box>
+          ))}
+        </Box>
       </Box>
     )
   })
