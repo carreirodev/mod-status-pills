@@ -1,3 +1,6 @@
 # Declarations the engine lays beside the mod each time it loads it
 .claude-plugin/types/
 node_modules/
+
+# The local list of steps for the work in progress
+/tasks.md
