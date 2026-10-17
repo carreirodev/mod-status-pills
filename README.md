@@ -1,6 +1,6 @@
 # status-pills
 
-Faixa de "pílulas" logo abaixo do prompt do Claude Code (no terminal e na aba Code do app desktop), embaixo da linha de dicas e do modo de permissão, com o que a status line mostra, num visual mais limpo:
+Faixa de "pílulas" colada no prompt do Claude Code, com o que a status line mostra, num visual mais limpo. No terminal ela fica logo abaixo do prompt, embaixo da linha de dicas e do modo de permissão; na aba Code do app desktop, logo acima da caixa de texto:
 
 ![A faixa de pílulas no terminal: modelo e esforço, contexto, limites de 5 horas e 7 dias, projeto e branch](docs/preview.png)
 
@@ -10,7 +10,13 @@ Faixa de "pílulas" logo abaixo do prompt do Claude Code (no terminal e na aba C
 - limite de 7 dias, com barra e a data e hora da renovação (`11/10 19h`);
 - projeto e branch.
 
-As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí para cima. Numa janela estreita as barras encurtam, e se ainda não couber as pílulas descem para uma segunda linha, com as duas linhas centralizadas. A linha de dicas do Claude Code continua como ele a desenha, logo acima das pílulas. O que outros mods põem embaixo dela (o botão do launchpad, por exemplo) também fica, acima ou abaixo das pílulas conforme a ordem em que os mods carregam.
+As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí para cima. Numa janela estreita as barras encurtam, e se ainda não couber as pílulas descem para uma segunda linha, com as duas linhas centralizadas.
+
+No terminal, a linha de dicas do Claude Code continua como ele a desenha, logo acima das pílulas. O que outros mods põem embaixo dela (o botão do launchpad, por exemplo) também fica, acima ou abaixo das pílulas conforme a ordem em que os mods carregam.
+
+No app desktop, a linha embaixo da caixa de texto é do próprio app (o modo de permissão, o modelo), e ele não deixa os mods desenharem nela. Por isso lá as pílulas ficam na faixa acima da caixa, sempre por último, coladas nela. O que outros mods desenham nessa faixa (os botões do prompt-enhancer, por exemplo) fica acima das pílulas.
+
+Essa posição depende da ordem em que o Claude Code carrega os mods, que um mod não escolhe. Os mods carregados de uma pasta (`--plugin-dir` ou `CLAUDE_CODE_PLUGIN_DIRS`, como em [Editar o mod](#editar-o-mod)) vêm antes dos instalados pelo marketplace; vindo antes, o status-pills recebe a faixa dos outros pronta e se põe embaixo dela. Instalado pelo marketplace, ele entra na fila dos outros mods instalados, na ordem que o Claude Code decidir: um mod que venha antes dele e desenhe a faixa sozinho, sem deixar os de baixo desenharem, esconde as pílulas no desktop (o prompt-enhancer 0.2.0 faz isso).
 
 No terminal cada pílula ocupa uma linha, com fundo colorido e pontas arredondadas; os ícones pedem uma [Nerd Font](https://www.nerdfonts.com/) no terminal. No app desktop as pílulas são desenhadas como figuras, nas cores do tema claro ou escuro.
 

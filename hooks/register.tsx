@@ -250,6 +250,16 @@ function terminalRuns(pill: Pill, cells: number): Run[] {
 const widthOf = (rows: Run[][]) =>
   rows.reduce((sum, runs) => sum + runs.reduce((n, run) => n + [...run.text].length, 0), 0) + PILL_GAP * Math.max(0, rows.length - 1)
 
+// The pills as the session stands, or null while there is nothing to show
+async function pillsNow($: EngineInterface): Promise<Pill[] | null> {
+  const shot = await read($, snapshot)
+  if (shot === null) {
+    return null
+  }
+  const pills = pillsOf(shot, await read($, effort))
+  return pills.length === 0 ? null : pills
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await refresh($)
@@ -272,13 +282,39 @@ export const register: Register = on => {
     return yield* next(e)
   })
 
-  on('ui.render', { component: 'PromptHint' }, async ($, e, next) => {
-    const shot = await read($, snapshot)
-    if (shot === null) {
+  // why: the desktop draws its own controls under the prompt and never asks the
+  // mods for the hint line there, so its pills close the band above the prompt
+  on('ui.render', { component: 'AbovePrompt', surface: 'desktop' }, async ($, e, next) => {
+    const pills = e.props.hasSurvey ? null : await pillsNow($)
+    if (pills === null) {
       return next(e)
     }
-    const pills = pillsOf(shot, await read($, effort))
-    if (pills.length === 0) {
+    // why: the band has one instance shared by every mod; answering without
+    // next would drop what the plugins beneath draw there (prompt-enhancer's
+    // buttons), so their tree goes above the pills, which stay by the prompt
+    const below = await next(e)
+    const { Box, Svg } = $.ui.resolve(e)
+
+    // The row hugs its pills: on one row it is only as wide as they are, kept
+    // to the left; once they wrap it spans the band and centers every row
+    return (
+      <Box flexDirection="column">
+        {below}
+        <Box flexDirection="column" alignItems="flex-start">
+          <Box flexDirection="row" flexWrap="wrap" justifyContent="center" columnGap={PILL_GAP}>
+            {pills.map(pill => {
+              const { source, width, alt } = pictureOf(pill)
+              return <Svg source={source} alt={alt} width={width} height={PICTURE_HEIGHT} />
+            })}
+          </Box>
+        </Box>
+      </Box>
+    )
+  })
+
+  on('ui.render', { component: 'PromptHint', surface: 'terminal' }, async ($, e, next) => {
+    const pills = await pillsNow($)
+    if (pills === null) {
       return next(e)
     }
     // why: the hint line has one instance shared by every mod; answering without
@@ -286,25 +322,6 @@ export const register: Register = on => {
     // and what the plugins beneath draw under it (launchpad's button), so their
     // tree goes above the pills
     const below = await next(e)
-
-    if (e.surface === 'desktop') {
-      const { Box, Svg } = $.ui.resolve(e)
-      // The row hugs its pills: on one row it is only as wide as they are, kept
-      // to the left; once they wrap it spans the band and centers every row
-      return (
-        <Box flexDirection="column">
-          {below}
-          <Box flexDirection="column" alignItems="flex-start">
-            <Box flexDirection="row" flexWrap="wrap" justifyContent="center" columnGap={PILL_GAP}>
-              {pills.map(pill => {
-                const { source, width, alt } = pictureOf(pill)
-                return <Svg source={source} alt={alt} width={width} height={PICTURE_HEIGHT} />
-              })}
-            </Box>
-          </Box>
-        </Box>
-      )
-    }
 
     // why: the hint line, unlike the band above the prompt, is handed no width of
     // its own; until the terminal has measured, the full bars on one row are drawn

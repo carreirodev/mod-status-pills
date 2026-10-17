@@ -40,17 +40,17 @@ const hint = (columns: number) => ({
   viewport: { columns, rows: 40 },
 })
 
-const band = {
+const band = (hasSurvey = false) => ({
   component: 'AbovePrompt' as const,
   props: {
-    hasSurvey: true,
+    hasSurvey,
     isWorking: false,
     maxRows: 12,
     bodyColumns: 195,
     scroll: { offset: 0, bodyRows: 11 },
     view: {},
   },
-}
+})
 
 const iso = (at: number) => new Date(at).toISOString()
 
@@ -67,8 +67,9 @@ const USAGE: SessionUsage = {
 }
 
 // The engine beneath the plugin, answering as a session would; `under` is a
-// text another mod beneath the plugin draws under the engine's hint line
-function engine(on: On, options: { branch?: string | null; under?: string } = {}) {
+// text another mod beneath the plugin draws under the engine's hint line, and
+// `above` one it draws in the band above the prompt
+function engine(on: On, options: { branch?: string | null; under?: string; above?: string } = {}) {
   const beneath = {
     usage: USAGE,
     clock: mock.clock(on, { now: NOW }),
@@ -100,10 +101,15 @@ function engine(on: On, options: { branch?: string | null; under?: string } = {}
       </Box>
     )
   })
-  // A survey in the band above the prompt
+  // The band above the prompt: a survey, another mod's row, or nothing
   on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
+    const text = e.props.hasSurvey ? 'survey' : options.above
+    if (text === undefined) {
+      // why: with no survey and no other mod the engine's own node draws nothing
+      return { type: 'engine', ref: 0 }
+    }
     const { Text } = $.ui.resolve(e)
-    return <Text>survey</Text>
+    return <Text>{text}</Text>
   })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.measure', ($, e) => ({ changed: e.changed }))
@@ -138,7 +144,8 @@ async function step($: Engine, effort: 'low' | 'medium' | 'high' | 'xhigh' | 'ma
   }
 }
 
-// The hint line as drawn: what the engine and the plugins beneath drew, then the pills' own row
+// The terminal's hint line or the desktop's band as drawn: what the engine and
+// the plugins beneath drew, then the pills' own row
 const withPills = (row: object) => ({ type: 'Box', props: { flexDirection: 'column' }, children: [expect.anything(), row] })
 
 type Found = { text: string; props: { color?: unknown; backgroundColor?: unknown; source?: unknown; alt?: unknown } }
@@ -195,20 +202,40 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   await ui.unmount()
 })
 
-test("the pills go right under the engine's hint line, which stays as it draws it", async ($, on) => {
+test("the terminal's pills go right under the engine's hint line, which stays as it draws it", async ($, on) => {
   engine(on)
   await begin($)
 
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...hint(200) })
-    expect(await ui.drawn()).toMatchObject(withPills({ type: 'Box' }))
-    expect(await ui.drawn()).toMatchObject({ children: [{ type: 'Text' }, expect.anything()] })
-    expect((await textsOf(ui))[0]).toBe(HINT)
-    if (surface === 'terminal') {
-      expect(await ui.drawn()).not.toMatchObject(withPills({ type: 'Box', props: { marginTop: 1 } }))
-    }
-    await ui.unmount()
-  }
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  expect(await ui.drawn()).toMatchObject(withPills({ type: 'Box' }))
+  expect(await ui.drawn()).toMatchObject({ children: [{ type: 'Text' }, expect.anything()] })
+  expect((await textsOf(ui))[0]).toBe(HINT)
+  expect(await ui.drawn()).not.toMatchObject(withPills({ type: 'Box', props: { marginTop: 1 } }))
+  await ui.unmount()
+})
+
+test('the desktop leaves the hint line to the engine, which it never asks the mods to draw', async ($, on) => {
+  engine(on)
+  await begin($)
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
+  expect(await textsOf(ui)).toEqual([HINT])
+  expect(await picturesOf(ui)).toEqual([])
+  await ui.unmount()
+})
+
+test("the desktop's pills close the band above the prompt, under what the other mods draw there", async ($, on) => {
+  // why: the band is one instance shared by every mod; prompt-enhancer draws
+  // its buttons there, and the pills stay last, right above the prompt
+  engine(on, { above: '✦ Enhance  ➤ Send' })
+  await begin($)
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
+  expect(await ui.drawn()).toMatchObject(withPills({ type: 'Box' }))
+  expect(await ui.drawn()).toMatchObject({ children: [{ type: 'Text' }, expect.anything()] })
+  expect(await textsOf(ui)).toEqual(['✦ Enhance  ➤ Send'])
+  expect((await picturesOf(ui)).map(picture => picture.alt)).toContain('Opus 5.5')
+  await ui.unmount()
 })
 
 test('a terminal that has not measured draws the full bars on one row', async ($, on) => {
@@ -244,7 +271,7 @@ test('the desktop centers wrapped rows and keeps a single row to the left', asyn
 
   // The desktop lays the pictures out itself: a column that does not stretch
   // its row lets one row hug the left, while a wrapped row spans the band
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
   expect(await ui.drawn()).toMatchObject(
     withPills({
       type: 'Box',
@@ -259,7 +286,7 @@ test('each desktop picture leaves two clear pixels above and below its pill', as
   engine(on)
   await begin($)
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
   const found = await ui.findAll({ type: 'Svg' })
 
   expect(found).toHaveLength(5)
@@ -278,7 +305,7 @@ test('the desktop draws every pill as a picture holding the same words', async (
   await begin($)
   await step($, 'high')
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
   const pictures = await picturesOf(ui)
 
   expect(pictures.map(picture => picture.alt)).toEqual([
@@ -293,8 +320,8 @@ test('the desktop draws every pill as a picture holding the same words', async (
     // Its colors switch with the desktop's theme
     expect(picture.source).toContain('@media (prefers-color-scheme: dark)')
   }
-  // The engine's hint line is the only text: the pills are pictures alone
-  expect(await textsOf(ui)).toEqual([HINT])
+  // An empty band holds no text: the pills are pictures alone
+  expect(await textsOf(ui)).toEqual([])
   await ui.unmount()
 })
 
@@ -337,7 +364,7 @@ test('bars take the status line colors: green under 50%, yellow under 80%, red f
   expect(severe.map(t => t.text)).toEqual([' ▒▒', ' ▒▒▒▒', ' ▒▒▒▒▒'])
   await terminal.unmount()
 
-  const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
+  const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
   const sourceOf = async (alt: string) => (await picturesOf(desktop)).find(picture => picture.alt.startsWith(alt))?.source
 
   expect(await sourceOf('ctx')).toContain(OK)
@@ -425,7 +452,7 @@ test('the desktop writes a branch name into its picture as text, never as markup
   engine(on, { branch: 'feat/a&b<c>' })
   await begin($)
 
-  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...hint(200) })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
   const project = (await picturesOf(ui)).find(picture => picture.alt.startsWith('painel-agents-mod'))
 
   expect(project?.alt).toBe('painel-agents-mod feat/a&b<c>')
@@ -434,39 +461,38 @@ test('the desktop writes a branch name into its picture as text, never as markup
   await ui.unmount()
 })
 
-test('keeps what another mod draws under the hint line, above the pills', async ($, on) => {
+test('the terminal keeps what another mod draws under the hint line, above the pills', async ($, on) => {
   // why: the hint line is one instance shared by every mod; launchpad draws
   // its button under the engine's line, and answering without next drops it
   engine(on, { under: '◆ pad' })
   await begin($)
 
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...hint(200) })
-
-    expect(await ui.drawn()).toMatchObject({
-      type: 'Box',
-      props: { flexDirection: 'column' },
-      children: [{ type: 'Box', children: [{ type: 'Text' }, { type: 'Text' }] }, { type: 'Box' }],
-    })
-    expect((await textsOf(ui)).slice(0, 2)).toEqual([HINT, '◆ pad'])
-    if (surface === 'terminal') {
-      expect(await textsOf(ui)).toContain(' Opus 5.5')
-    } else {
-      expect((await picturesOf(ui)).map(picture => picture.alt)).toContain('Opus 5.5')
-    }
-    await ui.unmount()
-  }
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  expect(await ui.drawn()).toMatchObject({
+    type: 'Box',
+    props: { flexDirection: 'column' },
+    children: [{ type: 'Box', children: [{ type: 'Text' }, { type: 'Text' }] }, { type: 'Box' }],
+  })
+  expect((await textsOf(ui)).slice(0, 2)).toEqual([HINT, '◆ pad'])
+  expect(await textsOf(ui)).toContain(' Opus 5.5')
+  await ui.unmount()
 })
 
-test('leaves the band above the prompt to the engine and the other mods', async ($, on) => {
-  engine(on)
+test('the terminal leaves the band above the prompt to the engine and the other mods', async ($, on) => {
+  engine(on, { above: '✦ Enhance  ➤ Send' })
   await begin($)
 
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ plugin: PLUGIN, surface, ...band })
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...band() })
+  expect(await textsOf(ui)).toEqual(['✦ Enhance  ➤ Send'])
+  await ui.unmount()
+})
 
-    expect(await textsOf(ui)).toEqual(['survey'])
-    expect(await picturesOf(ui)).toEqual([])
-    await ui.unmount()
-  }
+test('the desktop yields the band to a survey', async ($, on) => {
+  engine(on, { above: '✦ Enhance  ➤ Send' })
+  await begin($)
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(true) })
+  expect(await textsOf(ui)).toEqual(['survey'])
+  expect(await picturesOf(ui)).toEqual([])
+  await ui.unmount()
 })
