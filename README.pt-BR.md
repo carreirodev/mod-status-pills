@@ -63,7 +63,7 @@ Para não ter de lembrar: em `/plugin`, na aba **Marketplaces**, escolha `status
 
 ### Terminal
 
-As pílulas ficam logo abaixo do prompt. A linha de dicas do Claude Code continua como ele a desenha, logo acima delas. O que outros mods põem embaixo do prompt (o botão do launchpad, por exemplo) também fica, acima ou abaixo das pílulas conforme a ordem em que os mods carregam.
+As pílulas ficam logo abaixo do prompt. A linha de dicas do Claude Code continua como ele a desenha, acima delas, com uma linha em branco entre as duas. O que outros mods põem embaixo do prompt (o botão do launchpad, por exemplo) também fica, acima ou abaixo das pílulas conforme a ordem em que os mods carregam.
 
 Cada pílula ocupa uma linha, com fundo colorido e pontas arredondadas.
 

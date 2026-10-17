@@ -63,7 +63,7 @@ To stop having to remember: in `/plugin`, on the **Marketplaces** tab, pick `sta
 
 ### Terminal
 
-The pills sit right under the prompt. Claude Code's hint line stays as it draws it, just above the pills. Whatever other mods put under the prompt (launchpad's button, for example) stays too, above or below the pills depending on the order the mods load in.
+The pills sit right under the prompt. Claude Code's hint line stays as it draws it, above the pills, with a blank line between them. Whatever other mods put under the prompt (launchpad's button, for example) stays too, above or below the pills depending on the order the mods load in.
 
 Each pill is one line tall, with a colored background and rounded ends.
 

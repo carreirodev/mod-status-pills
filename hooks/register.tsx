@@ -339,7 +339,7 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column">
         {below}
-        <Box flexDirection="row" flexWrap="wrap" justifyContent={wraps ? 'center' : 'flex-start'} columnGap={PILL_GAP}>
+        <Box flexDirection="row" flexWrap="wrap" justifyContent={wraps ? 'center' : 'flex-start'} columnGap={PILL_GAP} marginTop={1}>
           {rows.map(row => (
             <Box key={row.key} flexDirection="row" flexShrink={0}>
               {row.runs.map(run => (

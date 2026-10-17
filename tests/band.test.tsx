@@ -202,7 +202,7 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   await ui.unmount()
 })
 
-test("the terminal's pills go right under the engine's hint line, which stays as it draws it", async ($, on) => {
+test("the terminal's pills go a blank row under the engine's hint line, which stays as it draws it", async ($, on) => {
   engine(on)
   await begin($)
 
@@ -210,7 +210,7 @@ test("the terminal's pills go right under the engine's hint line, which stays as
   expect(await ui.drawn()).toMatchObject(withPills({ type: 'Box' }))
   expect(await ui.drawn()).toMatchObject({ children: [{ type: 'Text' }, expect.anything()] })
   expect((await textsOf(ui))[0]).toBe(HINT)
-  expect(await ui.drawn()).not.toMatchObject(withPills({ type: 'Box', props: { marginTop: 1 } }))
+  expect(await ui.drawn()).toMatchObject(withPills({ type: 'Box', props: { marginTop: 1 } }))
   await ui.unmount()
 })
 
