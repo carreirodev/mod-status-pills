@@ -1,84 +1,115 @@
-# status-pills
+# Status Pills
 
-Faixa de "pílulas" colada no prompt do Claude Code, com o que a status line mostra, num visual mais limpo. No terminal ela fica logo abaixo do prompt, embaixo da linha de dicas e do modo de permissão; na aba Code do app desktop, logo acima da caixa de texto:
+**English** · [Português (Brasil)](README.pt-BR.md)
 
-![A faixa de pílulas no terminal: modelo e esforço, contexto, limites de 5 horas e 7 dias, projeto e branch](docs/preview.png)
+A row of pills by the Claude Code prompt that shows what the status line shows, in a cleaner look: model, context, usage limits, project and branch. In the terminal it sits right under the prompt; in the desktop app's Code tab, right above the text box.
 
-- modelo e esforço (`Opus 5.5 high`);
-- contexto usado (`ctx`), com barra;
-- limite de 5 horas, com barra e o tempo que falta para renovar (`2h54`);
-- limite de 7 dias, com barra e a data e hora da renovação (`11/10 19h`);
-- projeto e branch.
+**In the terminal**
 
-As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí para cima. Numa janela estreita as barras encurtam, e se ainda não couber as pílulas descem para uma segunda linha, com as duas linhas centralizadas.
+![Status Pills in the terminal: model and effort, context, the 5-hour and 7-day limits with their resets, project and branch](images/terminal-example.png)
 
-No terminal, a linha de dicas do Claude Code continua como ele a desenha, logo acima das pílulas. O que outros mods põem embaixo dela (o botão do launchpad, por exemplo) também fica, acima ou abaixo das pílulas conforme a ordem em que os mods carregam.
+**In the desktop app**
 
-No app desktop, a linha embaixo da caixa de texto é do próprio app (o modo de permissão, o modelo), e ele não deixa os mods desenharem nela. Por isso lá as pílulas ficam na faixa acima da caixa, sempre por último, coladas nela. O que outros mods desenham nessa faixa (os botões do prompt-enhancer, por exemplo) fica acima das pílulas.
+![Status Pills in the desktop app: the same pills, drawn as shapes in the theme's colors](images/desktop-example.png)
 
-Essa posição depende da ordem em que o Claude Code carrega os mods, que um mod não escolhe. Os mods carregados de uma pasta (`--plugin-dir` ou `CLAUDE_CODE_PLUGIN_DIRS`, como em [Editar o mod](#editar-o-mod)) vêm antes dos instalados pelo marketplace; vindo antes, o status-pills recebe a faixa dos outros pronta e se põe embaixo dela. Instalado pelo marketplace, ele entra na fila dos outros mods instalados, na ordem que o Claude Code decidir: um mod que venha antes dele e desenhe a faixa sozinho, sem deixar os de baixo desenharem, esconde as pílulas no desktop (o prompt-enhancer 0.2.0 faz isso).
+## What the pills show
 
-No terminal cada pílula ocupa uma linha, com fundo colorido e pontas arredondadas; os ícones pedem uma [Nerd Font](https://www.nerdfonts.com/) no terminal. No app desktop as pílulas são desenhadas como figuras, nas cores do tema claro ou escuro.
+| Pill | What it tells you | Example |
+| --- | --- | --- |
+| Model | Model and effort level | `Opus 5.5 xhigh` |
+| Context | How much of the context window is used, with a bar | `ctx 24%` |
+| 5-hour limit | Usage, with a bar, and the time left until it resets | `5h 8% · 3h09` |
+| 7-day limit | Usage, with a bar, and the day/month and hour it resets | `7D 11% · 19/10 21h` |
+| Project | Project folder and git branch | `mod-status-pills main` |
 
-No WSL e no Linux, o Claude Code só usa cores reais quando o terminal anuncia que as tem. Confira com `echo $COLORTERM`: se não aparecer `truecolor`, as cores são reduzidas a uma paleta de 256, e os ícones e as barras perdem o tom exato. Se o terminal desenha cores reais, como o Windows Terminal, acrescente `export COLORTERM=truecolor` ao `~/.bashrc` (ou ao `~/.zshrc`) e abra um terminal novo antes de iniciar o Claude Code.
+The bars are green under 50%, yellow under 80%, and red from there up. In a narrow window the bars shrink first; if the pills still don't fit, they wrap onto a second line, with both lines centered.
 
-## Instalar num computador novo
+## Install
 
-1. Numa sessão do Claude Code, digite:
+Status Pills installs by its id, `status-pills`. In a Claude Code session, type:
 
-   ```
-   /plugin install status-pills --marketplace carreirodev/mod-status-pills
-   ```
+```
+/plugin install status-pills --marketplace carreirodev/mod-status-pills
+```
 
-2. Responda `y` para adicionar o marketplace e escolha o escopo de usuário (o primeiro da lista) com Enter. A mensagem `Installed status-pills` confirma; a faixa aparece a partir daí, em toda sessão nova.
+Answer `y` to add the marketplace, then press Enter to pick the user scope (the first in the list). `Installed status-pills` confirms it, and the pills show up in every new session from then on.
 
-## Atualizar para uma versão nova
+> [!TIP]
+> The terminal icons need a [Nerd Font](https://www.nerdfonts.com/). On WSL or Linux, also check [True color on WSL and Linux](#true-color-on-wsl-and-linux).
 
-A atualização não é automática: cada computador que instalou pelo marketplace precisa pedir a versão nova.
+## Update
 
-1. No terminal, fora do Claude Code, rode:
+Updates aren't automatic: each computer that installed from the marketplace has to ask for the new version.
+
+1. In a terminal, outside Claude Code, run:
 
    ```
    claude plugin update status-pills@status-pills
    ```
 
-   A resposta diz de qual versão para qual foi, por exemplo `updated from 0.2.2 to 0.2.3`. Se já estiver na última, ela diz `already at the latest version`.
+   The reply says which version it moved from and to, e.g. `updated from 0.2.2 to 0.2.3`. If it's already on the latest, it says `already at the latest version`.
 
-2. Abra uma sessão nova do Claude Code, ou rode `/reload-plugins` numa sessão já aberta. A sessão que estava aberta durante a atualização continua com a versão antiga até isso.
+2. Open a new Claude Code session, or run `/reload-plugins` in one that's already open. A session left open during the update keeps the old version until then.
 
-Dentro de uma sessão, `/plugin marketplace update status-pills` faz o mesmo que o passo 1.
+Inside a session, `/plugin marketplace update status-pills` does the same as step 1.
 
-O WSL tem a sua própria instalação do Claude Code, separada da do Windows: rode o passo 1 dentro do WSL também.
+WSL has its own Claude Code install, separate from the Windows one: run step 1 inside WSL too.
 
-Para conferir a versão instalada, rode `claude plugin list` e procure `status-pills@status-pills`.
+To check the installed version, run `claude plugin list` and look for `status-pills@status-pills`.
 
-Para não ter de lembrar: em `/plugin`, na aba **Marketplaces**, escolha `status-pills` e depois **Enable auto-update**. Daí em diante, cada sessão nova busca a versão nova sozinha e avisa com `Plugin updated: status-pills · Run /reload-plugins to apply`.
+To stop having to remember: in `/plugin`, on the **Marketplaces** tab, pick `status-pills` and then **Enable auto-update**. From then on, each new session fetches the new version by itself and tells you with `Plugin updated: status-pills · Run /reload-plugins to apply`.
 
-## Editar o mod
+## Where the pills sit
 
-Para mexer no mod, use a pasta clonada em vez da instalação acima (um jeito ou o outro, não os dois):
+### Terminal
 
-1. Clone o repositório:
+The pills sit right under the prompt. Claude Code's hint line stays as it draws it, just above the pills. Whatever other mods put under the prompt (launchpad's button, for example) stays too, above or below the pills depending on the order the mods load in.
+
+Each pill is one line tall, with a colored background and rounded ends.
+
+### Desktop app
+
+The line under the text box belongs to the app itself (permission mode, model), and it doesn't let mods draw there. So on the desktop the pills go in the band above the text box, always last, right against it. Whatever other mods draw in that band (prompt-enhancer's buttons, for example) stays above the pills.
+
+The pills are drawn as shapes, in the light or dark theme's colors.
+
+### Load order
+
+Where the pills land depends on the order Claude Code loads mods in, which a mod doesn't get to choose. Mods loaded from a folder (`--plugin-dir` or `CLAUDE_CODE_PLUGIN_DIRS`, as in [Developing](#developing)) come before the ones installed from a marketplace. Coming first, Status Pills receives the other mods' band already built and places itself under it.
+
+Installed from the marketplace, it waits in line with the other installed mods, in whatever order Claude Code decides. A mod that comes before it and draws the band on its own, without letting the ones below draw, hides the pills on the desktop (prompt-enhancer 0.2.0 does this).
+
+## True color on WSL and Linux
+
+On WSL and Linux, Claude Code only uses true color when the terminal announces it. Check with `echo $COLORTERM`: if it doesn't print `truecolor`, colors are reduced to a 256-color palette, and the icons and bars lose their exact shade.
+
+If your terminal does draw true color, as Windows Terminal does, add `export COLORTERM=truecolor` to `~/.bashrc` (or `~/.zshrc`) and open a new terminal before starting Claude Code.
+
+## Developing
+
+To work on the mod, use a cloned folder instead of the install above (one or the other, not both):
+
+1. Clone the repository:
 
    ```
-   git clone https://github.com/carreirodev/mod-status-pills.git C:\Users\SEU_USUARIO\mods\status-pills
+   git clone https://github.com/carreirodev/mod-status-pills.git C:\Users\YOUR_USER\mods\status-pills
    ```
 
-2. Em `~/.claude/settings.json`, no bloco `env`, acrescente essa pasta a `CLAUDE_CODE_PLUGIN_DIRS`. Várias pastas são separadas por `;` no Windows:
+2. In `~/.claude/settings.json`, inside the `env` block, add that folder to `CLAUDE_CODE_PLUGIN_DIRS`. On Windows, separate several folders with `;`:
 
    ```json
    "env": {
-     "CLAUDE_CODE_PLUGIN_DIRS": "C:\\Users\\SEU_USUARIO\\mods\\agents-panel;C:\\Users\\SEU_USUARIO\\mods\\status-pills"
+     "CLAUDE_CODE_PLUGIN_DIRS": "C:\\Users\\YOUR_USER\\mods\\agents-panel;C:\\Users\\YOUR_USER\\mods\\status-pills"
    }
    ```
 
-3. Abra uma sessão nova. Daí em diante, cada mudança salva na pasta recarrega o mod ao fim da resposta do Claude.
+3. Open a new session. From then on, every change saved in the folder reloads the mod at the end of Claude's reply.
 
-Antes de subir uma mudança, rode na pasta do mod:
+Before pushing a change, run in the mod's folder:
 
 ```
 claude plugin validate .
 claude plugin test .
 ```
 
-E aumente `version` em `.claude-plugin/plugin.json`: os computadores que instalaram pelo marketplace só recebem a mudança quando a versão muda.
+Then bump `version` in `.claude-plugin/plugin.json`: computers that installed from the marketplace only get the change when the version changes.
