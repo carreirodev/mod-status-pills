@@ -15,9 +15,9 @@ const WARN = '#eed49f'
 const CRIT = '#ed8796'
 const PROJECT = '#33dd2d'
 const BRANCH = '#3a86ff'
-const CHIP_TINT = '#1c1c1c'
-const TRACK = '#303030'
-const RULE = '#444444'
+const CHIP_TINT = '#303030'
+const TRACK = '#585858'
+const RULE = '#626262'
 
 // A gray with the same red, green and blue, which a 256-color terminal keeps gray
 const isGray = (hex: unknown) => typeof hex === 'string' && /^#([0-9a-f]{2})\1\1$/i.test(hex)
@@ -190,13 +190,13 @@ test('the terminal draws every pill on one row, its tint between rounded ends', 
   expect([...new Set(found.filter(t => t.props.backgroundColor !== undefined).map(t => t.props.backgroundColor))]).toEqual([CHIP_TINT])
   expect(found.filter(t => t.text === LEFT_CAP || t.text === RIGHT_CAP).every(t => t.props.color === CHIP_TINT)).toBe(true)
   // The empty cells of a bar and the separator stay faint on it: ctx at 23% leaves five of six
-  expect(propsOf('▒▒▒▒▒')?.color).toBe(TRACK)
+  expect(propsOf('▓▓▓▓▓')?.color).toBe(TRACK)
   expect(found.filter(t => t.text === ' │').map(t => t.props.color)).toEqual([RULE, RULE])
   // The surface, its ends, the empty cells and the separators are all grays
   const surface = [
     ...found.filter(t => t.props.backgroundColor !== undefined).map(t => t.props.backgroundColor),
     ...found.filter(t => t.text === LEFT_CAP || t.text === RIGHT_CAP || t.text === ' │').map(t => t.props.color),
-    propsOf('▒▒▒▒▒')?.color,
+    propsOf('▓▓▓▓▓')?.color,
   ]
   expect(surface.every(isGray)).toBe(true)
   await ui.unmount()
@@ -246,7 +246,7 @@ test('a terminal that has not measured draws the full bars on one row', async ($
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...unmeasured })
   expect(await ui.drawn()).toMatchObject(withPills({ type: 'Box', props: { justifyContent: 'flex-start' } }))
   // ctx at 23% of six cells: one filled, five of track
-  expect(await textsOf(ui)).toContain('▒▒▒▒▒')
+  expect(await textsOf(ui)).toContain('▓▓▓▓▓')
   await ui.unmount()
 })
 
@@ -335,8 +335,8 @@ test('a narrow terminal band keeps the resets and shortens the bars', async ($, 
   expect(texts).toContain(' 2h54')
   expect(texts).toContain(' 11/10 19h')
   // ctx at 23% of five cells: one filled, four of track
-  expect(texts).toContain(' ▒')
-  expect(texts).toContain('▒▒▒▒')
+  expect(texts).toContain(' ▓')
+  expect(texts).toContain('▓▓▓▓')
   await ui.unmount()
 })
 
@@ -356,12 +356,12 @@ test('bars take the status line colors: green under 50%, yellow under 80%, red f
   const found = await terminal.findAll({ type: 'Text' })
   const colorOf = (text: string) => found.find(t => t.text === text)?.props.color
 
-  expect(colorOf(' ▒▒')).toBe(OK)
-  expect(colorOf(' ▒▒▒▒')).toBe(WARN)
-  expect(colorOf(' ▒▒▒▒▒')).toBe(CRIT)
+  expect(colorOf(' ▓▓')).toBe(OK)
+  expect(colorOf(' ▓▓▓▓')).toBe(WARN)
+  expect(colorOf(' ▓▓▓▓▓')).toBe(CRIT)
   // In the limit pills only the bars carry a severity color: no icon or label shares it
   const severe = found.filter(t => [OK, WARN, CRIT].includes(String(t.props.color)))
-  expect(severe.map(t => t.text)).toEqual([' ▒▒', ' ▒▒▒▒', ' ▒▒▒▒▒'])
+  expect(severe.map(t => t.text)).toEqual([' ▓▓', ' ▓▓▓▓', ' ▓▓▓▓▓'])
   await terminal.unmount()
 
   const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })

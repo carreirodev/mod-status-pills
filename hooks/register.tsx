@@ -25,8 +25,11 @@ const LABEL = '#939ab7'
 const VALUE = '#cad3f5'
 const TIME = '#b8c0e0'
 // A bar's empty cells and a pill's inner separator, kept faint on the terminal's tint
-const TRACK = '#303030'
-const RULE = '#444444'
+const TRACK = '#585858'
+const RULE = '#626262'
+// A dense shade: the terminal blends a shade's color with the tint, and a
+// lighter one (▒) left the bars at half their color
+const SHADE = '▓'
 // The oh-my-posh prompt's colors: a green folder, a blue branch
 const PROJECT = '#33dd2d'
 const BRANCH = '#3a86ff'
@@ -36,12 +39,12 @@ const OK = '#a6da95'
 const WARN = '#eed49f'
 const CRIT = '#ed8796'
 
-// The surface every pill shares: its tint in the terminal, a step above the
-// terminal's own background, and its border on the desktop.
+// The surface every pill shares: its tint in the terminal, a few steps above
+// the terminal's own background so the pills stand out, and its border on the desktop.
 // The tint, TRACK and RULE are pure grays on the xterm gray ramp: a terminal
 // with only 256 colors keeps them as they are, but rounds a dark color with a
 // hint of hue to a saturated one, and turned the old #16171f into navy blue
-const CHIP = { border: '#5b6078', tint: '#1c1c1c' }
+const CHIP = { border: '#5b6078', tint: '#303030' }
 const ACCENTS = {
   model: { ...CHIP, icon: MODEL },
   context: { ...CHIP, icon: METER },
@@ -226,8 +229,8 @@ function runsOf(item: Item, cells: number): Run[] {
     case 'bar': {
       const filled = Math.min(cells, Math.max(0, Math.round((item.percent / 100) * cells)))
       return [
-        { text: '▒'.repeat(filled), color: item.color, bold: false },
-        { text: '▒'.repeat(cells - filled), color: TRACK, bold: false },
+        { text: SHADE.repeat(filled), color: item.color, bold: false },
+        { text: SHADE.repeat(cells - filled), color: TRACK, bold: false },
       ]
     }
   }
