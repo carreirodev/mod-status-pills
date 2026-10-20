@@ -2,7 +2,7 @@
 
 [English](README.md) · **Português (Brasil)**
 
-Uma faixa de pílulas colada no prompt do Claude Code, com o que a status line mostra, num visual mais limpo: modelo, contexto, limites de uso, projeto e branch. No terminal ela fica logo abaixo do prompt; na aba Code do app desktop, logo acima da caixa de texto.
+Uma faixa de pílulas colada no prompt do Claude Code, com o que a status line mostra, num visual mais limpo: modelo, contexto, limites de uso, projeto e branch, e o cache de prompt. No terminal ela fica logo abaixo do prompt; na aba Code do app desktop, logo acima da caixa de texto.
 
 **No terminal**
 
@@ -21,8 +21,11 @@ Uma faixa de pílulas colada no prompt do Claude Code, com o que a status line m
 | Limite de 5 horas | Uso, com barra, e o tempo que falta para renovar | `5h 8% · 3h09` |
 | Limite de 7 dias | Uso, com barra, e o dia/mês e a hora da renovação | `7D 11% · 19/10 21h` |
 | Projeto | Pasta do projeto e branch do git | `mod-status-pills main` |
+| Cache de prompt | Minutos até o cache esfriar, e quanto do que foi enviado veio dele | `42m 95%` |
 
 As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí para cima. Numa janela estreita as barras encurtam primeiro; se ainda não couber, as pílulas descem para uma segunda linha, com as duas linhas centralizadas.
+
+A pílula do cache aparece depois da primeira resposta. Os minutos contam a partir do último pedido ao modelo, com as mesmas cores conforme o quanto da vida do cache já passou; quando acabam, a pílula mostra `frio` em vermelho, e a próxima mensagem reprocessa a conversa inteira. A porcentagem conta só a conversa principal, desde o início ou desde o último `/clear`. O Claude Code só informa a um mod quanto o cache dura quando o modelo muda, então a pílula conta uma hora até lá; trocar para outro modelo começa com o cache frio.
 
 ## Instalar
 

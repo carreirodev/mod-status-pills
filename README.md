@@ -2,7 +2,7 @@
 
 **English** · [Português (Brasil)](README.pt-BR.md)
 
-A row of pills by the Claude Code prompt that shows what the status line shows, in a cleaner look: model, context, usage limits, project and branch. In the terminal it sits right under the prompt; in the desktop app's Code tab, right above the text box.
+A row of pills by the Claude Code prompt that shows what the status line shows, in a cleaner look: model, context, usage limits, project and branch, and the prompt cache. In the terminal it sits right under the prompt; in the desktop app's Code tab, right above the text box.
 
 **In the terminal**
 
@@ -21,8 +21,11 @@ A row of pills by the Claude Code prompt that shows what the status line shows, 
 | 5-hour limit | Usage, with a bar, and the time left until it resets | `5h 8% · 3h09` |
 | 7-day limit | Usage, with a bar, and the day/month and hour it resets | `7D 11% · 19/10 21h` |
 | Project | Project folder and git branch | `mod-status-pills main` |
+| Prompt cache | Minutes until the cache goes cold, and how much of what was sent came from it | `42m 95%` |
 
 The bars are green under 50%, yellow under 80%, and red from there up. In a narrow window the bars shrink first; if the pills still don't fit, they wrap onto a second line, with both lines centered.
+
+The cache pill shows up after the first response. Its minutes count down from the latest request to the model, in the same colors by how much of the cache's life has gone; once it runs out the pill says `frio` (cold) in red, and the next message reprocesses the whole conversation. The share counts the main conversation alone, since it started or since the last `/clear`. Claude Code tells a mod how long the cache lasts only when the model switches, so the pill counts an hour until then; switching to another model starts it cold.
 
 ## Install
 

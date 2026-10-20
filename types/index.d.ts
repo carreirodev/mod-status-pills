@@ -5,6 +5,18 @@ export type Limit = {
   resetsAt: number | null
 }
 
+// The main loop's prompt cache, as its responses reported it
+export type Cache = {
+  // Input tokens the main loop's requests carried, and how many of them the cache served
+  tokensIn: number
+  tokensRead: number
+  // When the latest answered request was sent, the moment its cache entry was
+  // last refreshed; null before one, and once a model switch forfeited the cache
+  sentAt: number | null
+  // How long an entry lives unused, in milliseconds
+  ttlMs: number
+}
+
 // Everything the band draws, read from the session at one moment
 export type Snapshot = {
   model: string | null
@@ -24,6 +36,8 @@ declare module 'claude-code' {
       snapshot: Snapshot | null
       // The main loop's effort, as its latest model request named it
       effort: string | null
+      // The main loop's prompt cache; null until a response or a model switch reports on it
+      cache: Cache | null
     }
   }
 }

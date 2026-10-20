@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionUsage } from 'claude-code'
 
-import type { Limit, Snapshot } from '../types'
+import type { Cache, Limit, Snapshot } from '../types'
 import { PICTURE_HEIGHT, pictureOf } from './picture'
 import type { Accent, Icon, Item, Pill } from './picture'
 
@@ -13,8 +13,15 @@ const BAR_CELLS = 6
 const COMPACT_BAR_CELLS = 5
 const PILL_GAP = 1
 
+// How long a prompt cache entry lives unused: the engine names it only when the
+// model switches, so an hour until then
+const CACHE_TTLS = { '5m': 5 * 60_000, '1h': 60 * 60_000 }
+const EMPTY_CACHE: Cache = { tokensIn: 0, tokensRead: 0, sentAt: null, ttlMs: CACHE_TTLS['1h'] }
+const COLD = 'frio'
+
 const snapshot = atom({ plugin: 'status-pills', key: 'snapshot' } as const, null)
 const effort = atom({ plugin: 'status-pills', key: 'effort' } as const, null)
+const cache = atom({ plugin: 'status-pills', key: 'cache' } as const, null)
 
 // The colors are made for a dark background; the desktop's light theme darkens each.
 // One soft palette: every pill sits on the same surface, a pill's own hue is
@@ -51,6 +58,7 @@ const ACCENTS = {
   fiveHour: { ...CHIP, icon: METER },
   sevenDay: { ...CHIP, icon: METER },
   project: { ...CHIP, icon: PROJECT },
+  cache: { ...CHIP, icon: METER },
 }
 
 const EFFORT_COLORS: Record<string, string> = {
@@ -72,6 +80,7 @@ const GLYPHS: Record<Icon, string> = {
   reset: glyph(0xf1da),
   folder: glyph(0xe5ff),
   branch: glyph(0xe0a0),
+  cache: glyph(0xf1c0),
 }
 // Powerline's half circles, which round off the ends of a pill's tint
 const LEFT_CAP = glyph(0xe0b6)
@@ -174,7 +183,17 @@ function limitPill(key: string, label: string, name: Icon, accent: Accent, limit
   return { key, accent, items }
 }
 
-function pillsOf(shot: Snapshot, effortLevel: string | null): Pill[] {
+// The cache's pill: the minutes its entry stays warm, colored by the share of
+// its life gone as a bar by its fill, then the share of the main loop's input
+// the cache served
+function cachePill(shot: Snapshot, state: Cache): Pill {
+  const left = state.sentAt === null ? 0 : state.sentAt + state.ttlMs - Math.max(shot.at, state.sentAt)
+  const time = left > 0 ? strong(`${Math.ceil(left / 60_000)}m`, severity(100 * (1 - left / state.ttlMs))) : strong(COLD, CRIT)
+  const share = Math.round((100 * state.tokensRead) / state.tokensIn)
+  return { key: 'cache', accent: ACCENTS.cache, items: [icon('cache', ACCENTS.cache.icon), time, plain(`${share}%`, VALUE)] }
+}
+
+function pillsOf(shot: Snapshot, effortLevel: string | null, cacheState: Cache | null): Pill[] {
   const pills: Pill[] = []
   if (shot.model !== null) {
     const items = [icon('model', ACCENTS.model.icon), strong(shortModel(shot.model), MODEL)]
@@ -211,6 +230,9 @@ function pillsOf(shot: Snapshot, effortLevel: string | null): Pill[] {
   }
   if (place.length > 0) {
     pills.push({ key: 'project', accent: ACCENTS.project, items: place })
+  }
+  if (cacheState !== null && cacheState.tokensIn > 0) {
+    pills.push(cachePill(shot, cacheState))
   }
   return pills
 }
@@ -259,7 +281,7 @@ async function pillsNow($: EngineInterface): Promise<Pill[] | null> {
   if (shot === null) {
     return null
   }
-  const pills = pillsOf(shot, await read($, effort))
+  const pills = pillsOf(shot, await read($, effort), await read($, cache))
   return pills.length === 0 ? null : pills
 }
 
@@ -278,11 +300,53 @@ export const register: Register = on => {
   })
 
   on('turn.step', async function* ($, e, next) {
-    if (e.agentId === undefined && e.effort !== undefined) {
+    // A subagent's requests keep a cache of their own
+    if (e.agentId !== undefined) {
+      return yield* next(e)
+    }
+    if (e.effort !== undefined) {
       const level = String(e.effort)
       await update($, effort, () => level)
     }
-    return yield* next(e)
+    // The entry's life starts over when the request reaches it, not when the answer ends
+    const sentAt = await $.clock.now()
+    const response = yield* next(e)
+    const { usage } = response
+    if (usage !== null) {
+      const served = usage.cache_read_input_tokens
+      const written = usage.cache_creation_input_tokens
+      await update($, cache, previous => {
+        const state = previous ?? EMPTY_CACHE
+        return {
+          tokensIn: state.tokensIn + usage.input_tokens + served + written,
+          tokensRead: state.tokensRead + served,
+          // A request that neither read nor wrote the cache left its entry as it was
+          sentAt: served + written > 0 ? sentAt : state.sentAt,
+          ttlMs: state.ttlMs,
+        }
+      })
+    }
+    return response
+  })
+
+  // Another model starts with no cache of its own; the switch is also the one
+  // moment the engine says how long an entry lives
+  on('classic.PostModelSwitch', async ($, e, next) => {
+    const ttlMs = CACHE_TTLS[e.cache_ttl]
+    const isSameModel = e.from_model === e.to_model
+    await update($, cache, previous => {
+      const state = previous ?? EMPTY_CACHE
+      return { ...state, sentAt: isSameModel ? state.sentAt : null, ttlMs }
+    })
+    return next(e)
+  })
+
+  // A /clear starts the conversation over: its cache counts start again, the entry's life kept
+  on('session.end', async ($, e, next) => {
+    if (e.reason === 'clear') {
+      await update($, cache, previous => (previous === null ? null : { ...EMPTY_CACHE, ttlMs: previous.ttlMs }))
+    }
+    return next(e)
   })
 
   // why: the desktop draws its own controls under the prompt and never asks the

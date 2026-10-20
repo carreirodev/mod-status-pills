@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
-import type { On, SessionUsage } from 'claude-code'
+import type { On, SessionUsage, TurnUsage } from 'claude-code'
 
 const PLUGIN = 'status-pills'
 
@@ -28,6 +28,7 @@ const MODEL_ICON = glyph(0xf2db)
 const RESET_ICON = glyph(0xf1da)
 const FOLDER_ICON = glyph(0xe5ff)
 const BRANCH_ICON = glyph(0xe0a0)
+const CACHE_ICON = glyph(0xf1c0)
 const LEFT_CAP = glyph(0xe0b6)
 const RIGHT_CAP = glyph(0xe0b4)
 
@@ -66,12 +67,32 @@ const USAGE: SessionUsage = {
   cost: { usd: 1.5 },
 }
 
+// A main-loop response on a warm cache: 95,000 of its 100,000 input tokens read from it
+const WARM: TurnUsage = {
+  input_tokens: 1_000,
+  output_tokens: 500,
+  cache_read_input_tokens: 95_000,
+  cache_creation_input_tokens: 4_000,
+  model: 'claude-opus-5-5',
+}
+
+// A response on a cold cache: its 150,000 input tokens written to it afresh
+const COLD: TurnUsage = {
+  input_tokens: 0,
+  output_tokens: 500,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 150_000,
+  model: 'claude-opus-5-5',
+}
+
 // The engine beneath the plugin, answering as a session would; `under` is a
 // text another mod beneath the plugin draws under the engine's hint line, and
 // `above` one it draws in the band above the prompt
 function engine(on: On, options: { branch?: string | null; under?: string; above?: string } = {}) {
   const beneath = {
     usage: USAGE,
+    // What the next model request reports; null, a response that carried no usage
+    step: null as TurnUsage | null,
     clock: mock.clock(on, { now: NOW }),
   }
   const branch = options.branch === undefined ? 'main' : options.branch
@@ -120,9 +141,11 @@ function engine(on: On, options: { branch?: string | null; under?: string; above
       answer: '',
       toolUses: [],
       stopReason: 'end_turn' as const,
-      usage: null,
+      usage: beneath.step,
     }
   })
+  on('classic.PostModelSwitch', () => ({}))
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }))
   return beneath
 }
 
@@ -386,6 +409,7 @@ test('before the first response: the model and the project alone', async ($, on)
   expect(texts).toContain(' main')
   expect(texts).not.toContain(' ctx')
   expect(texts).not.toContain(` ${RESET_ICON}`)
+  expect(texts).not.toContain(CACHE_ICON)
   await ui.unmount()
 })
 
@@ -494,5 +518,140 @@ test('the desktop yields the band to a survey', async ($, on) => {
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band(true) })
   expect(await textsOf(ui)).toEqual(['survey'])
   expect(await picturesOf(ui)).toEqual([])
+  await ui.unmount()
+})
+
+// The classic hook a /model raises once the session runs on `to`
+const switchTo = ($: Engine, to: string, ttl: '5m' | '1h') =>
+  $.classic.PostModelSwitch({
+    from_model: 'claude-opus-5-5',
+    to_model: to,
+    requested_model: null,
+    source: 'command',
+    context_tokens: 100_000,
+    prompt_cache_warm: true,
+    cache_ttl: ttl,
+    estimated_cache_write_usd: 0.5,
+    pricing: 'catalog',
+  })
+
+test('the cache pill closes the row: the minutes its entry stays warm and the share it served', async ($, on) => {
+  const beneath = engine(on)
+  await begin($)
+  beneath.step = WARM
+  await step($, 'high')
+
+  const terminal = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  const found = await terminal.findAll({ type: 'Text' })
+  const texts = found.map(t => t.text)
+
+  // Its icon, a fresh hour in green, then 95 of every 100 input tokens read from the cache
+  expect(texts.slice(-7)).toEqual([LEFT_CAP, ' ', CACHE_ICON, ' 60m', ' 95%', ' ', RIGHT_CAP])
+  expect(found.find(t => t.text === ' 60m')?.props.color).toBe(OK)
+  expect(texts.filter(text => text === LEFT_CAP)).toHaveLength(6)
+  await terminal.unmount()
+
+  const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', ...band() })
+  const pictures = await picturesOf(desktop)
+  expect(pictures.at(-1)?.alt).toBe('60m 95%')
+  expect(pictures.at(-1)?.source).toContain(OK)
+  await desktop.unmount()
+})
+
+test('the minutes count down, yellow past half the hour and red past 80% of it, then say frio', async ($, on) => {
+  const beneath = engine(on)
+  await begin($)
+  beneath.step = WARM
+  await step($, 'high')
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  const colorOf = async (text: string) => (await ui.findAll({ type: 'Text' })).find(t => t.text === text)?.props.color
+
+  await beneath.clock.advance(31 * MINUTE)
+  expect(await colorOf(' 29m')).toBe(WARN)
+  await beneath.clock.advance(18 * MINUTE)
+  expect(await colorOf(' 11m')).toBe(CRIT)
+  await beneath.clock.advance(11 * MINUTE)
+  expect(await colorOf(' frio')).toBe(CRIT)
+  expect(await textsOf(ui)).toContain(' 95%')
+
+  // The next response writes the cache afresh: a new hour, and the share counts what it paid for
+  beneath.step = COLD
+  await step($, 'high')
+  expect(await colorOf(' 60m')).toBe(OK)
+  expect(await textsOf(ui)).toContain(' 38%')
+  await ui.unmount()
+})
+
+test("a subagent's requests leave the main loop's cache pill as it was", async ($, on) => {
+  const beneath = engine(on)
+  await begin($)
+  beneath.step = WARM
+  await step($, 'high')
+  await beneath.clock.advance(10 * MINUTE)
+  beneath.step = COLD
+  await step($, 'high', 'a1')
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  const texts = await textsOf(ui)
+  expect(texts).toContain(' 50m')
+  expect(texts).toContain(' 95%')
+  await ui.unmount()
+})
+
+test('a response that neither read nor wrote the cache leaves its entry to run down', async ($, on) => {
+  const beneath = engine(on)
+  await begin($)
+  beneath.step = WARM
+  await step($, 'high')
+  await beneath.clock.advance(10 * MINUTE)
+  beneath.step = { ...WARM, input_tokens: 1_000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
+  await step($, 'high')
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  const texts = await textsOf(ui)
+  expect(texts).toContain(' 50m')
+  // 95,000 read of 101,000 sent
+  expect(texts).toContain(' 94%')
+  await ui.unmount()
+})
+
+test('another model starts cold, and the switch says how long an entry lives', async ($, on) => {
+  const beneath = engine(on)
+  await begin($)
+  beneath.step = WARM
+  await step($, 'high')
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  // Asking for the model already running keeps its cache
+  await switchTo($, 'claude-opus-5-5', '1h')
+  expect(await textsOf(ui)).toContain(' 60m')
+
+  await switchTo($, 'claude-sonnet-5-5', '5m')
+  expect(await textsOf(ui)).toContain(' frio')
+
+  // Its first response starts an entry of five minutes
+  await step($, 'high')
+  expect(await textsOf(ui)).toContain(' 5m')
+  await ui.unmount()
+})
+
+test('a /clear hides the cache pill until the next response, which keeps the known lifetime', async ($, on) => {
+  const beneath = engine(on)
+  await begin($)
+  beneath.step = WARM
+  await step($, 'high')
+  await switchTo($, 'claude-sonnet-5-5', '5m')
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  expect(await textsOf(ui)).toContain(CACHE_ICON)
+
+  await $.session.end({ reason: 'clear', sessionId: 's1', resume: { id: 's1' } })
+  expect(await textsOf(ui)).not.toContain(CACHE_ICON)
+
+  await step($, 'high')
+  const texts = await textsOf(ui)
+  expect(texts).toContain(' 5m')
+  expect(texts).toContain(' 95%')
   await ui.unmount()
 })
