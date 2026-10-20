@@ -26,13 +26,29 @@ As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí pa
 
 ## Instalar
 
-O Status Pills se instala pelo seu identificador, `status-pills`, a partir do [WPC Mods for Claude](https://github.com/carreirodev/wpc-mods-claude/blob/main/README.pt-BR.md), o marketplace com todos os meus mods. Numa sessão do Claude Code, digite:
+O Status Pills se instala pelo seu identificador, `status-pills`, a partir do [WPC Mods for Claude](https://github.com/carreirodev/wpc-mods-claude/blob/main/README.pt-BR.md), o marketplace com todos os meus mods. Há dois jeitos, e os dois fazem a mesma coisa: escolha um.
+
+**Dentro do Claude Code**, numa sessão, digite:
 
 ```
 /plugin install status-pills --marketplace carreirodev/wpc-mods-claude
 ```
 
-Responda `y` para adicionar o marketplace e escolha o escopo de usuário (o primeiro da lista) com Enter. A mensagem `Installed status-pills` confirma; a faixa aparece a partir daí, em toda sessão nova.
+Responda `y` para adicionar o marketplace e escolha o escopo de usuário (o primeiro da lista) com Enter. A mensagem `Installed status-pills` confirma.
+
+**Pelo terminal**, fora do Claude Code, rode um comando e depois o outro:
+
+```
+claude plugin marketplace add carreirodev/wpc-mods-claude
+```
+
+```
+claude plugin install status-pills@wpc-mods-claude
+```
+
+Aqui o escopo de usuário já é o padrão, então não há nada para escolher.
+
+De um jeito ou do outro, a faixa aparece a partir daí, em toda sessão nova; numa sessão que já estava aberta, rode `/reload-plugins`.
 
 Instalou antes pelo marketplace deste repositório (`status-pills@status-pills`)? Essa cópia continua atualizando como antes. Para trocar, siga [estes passos](https://github.com/carreirodev/wpc-mods-claude/blob/main/README.pt-BR.md#se-você-já-instalou-um-mod-pelo-repositório-dele); não fique com as duas, porque só uma roda.
 

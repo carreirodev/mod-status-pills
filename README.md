@@ -26,13 +26,29 @@ The bars are green under 50%, yellow under 80%, and red from there up. In a narr
 
 ## Install
 
-Status Pills installs by its id, `status-pills`, from [WPC Mods for Claude](https://github.com/carreirodev/wpc-mods-claude), the marketplace with all my mods. In a Claude Code session, type:
+Status Pills installs by its id, `status-pills`, from [WPC Mods for Claude](https://github.com/carreirodev/wpc-mods-claude), the marketplace with all my mods. There are two ways, and they do the same thing: pick one.
+
+**Inside Claude Code**, in a session, type:
 
 ```
 /plugin install status-pills --marketplace carreirodev/wpc-mods-claude
 ```
 
-Answer `y` to add the marketplace, then press Enter to pick the user scope (the first in the list). `Installed status-pills` confirms it, and the pills show up in every new session from then on.
+Answer `y` to add the marketplace, then press Enter to pick the user scope (the first in the list). `Installed status-pills` confirms it.
+
+**From a terminal**, outside Claude Code, run one command and then the other:
+
+```
+claude plugin marketplace add carreirodev/wpc-mods-claude
+```
+
+```
+claude plugin install status-pills@wpc-mods-claude
+```
+
+Here the user scope is already the default, so there's nothing to pick.
+
+Either way, the pills show up in every new session from then on; in a session that was already open, run `/reload-plugins`.
 
 Installed it earlier from this repository's own marketplace (`status-pills@status-pills`)? That copy keeps updating as before. To switch, follow [these steps](https://github.com/carreirodev/wpc-mods-claude#if-you-already-installed-a-mod-from-its-own-repository); don't keep both, since only one would run.
 
