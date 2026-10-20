@@ -20,10 +20,12 @@ A row of pills by the Claude Code prompt that shows what the status line shows, 
 | Context | How much of the context window is used, with a bar | `ctx 24%` |
 | 5-hour limit | Usage, with a bar, and the time left until it resets | `5h 8% · 3h09` |
 | 7-day limit | Usage, with a bar, and the day/month and hour it resets | `7D 11% · 19/10 21h` |
-| Project | Project folder and git branch | `mod-status-pills main` |
+| Project | Project folder and the git branch the agent works on | `mod-status-pills main` |
 | Prompt cache | Minutes until the cache goes cold, and how much of what was sent came from it | `42m 95%` |
 
 The bars are green under 50%, yellow under 80%, and red from there up. In a narrow window the bars shrink first; if the pills still don't fit, they wrap onto a second line, with both lines centered.
+
+The branch follows the agent. When it edits a file in another worktree of the same repository (one it made with `git worktree add` to work beside another session, say), the pill shows that worktree's branch, while the folder stays the session's. It goes back to the session folder's branch when the agent edits a file there again, or once that worktree is removed. Only the main conversation's edits count, not a subagent's.
 
 The cache pill shows up after the first response. Its minutes count down from the latest request to the model, in the same colors by how much of the cache's life has gone; once it runs out the pill says `frio` (cold) in red, and the next message reprocesses the whole conversation. The share counts the main conversation alone, since it started or since the last `/clear`. Claude Code tells a mod how long the cache lasts only when the model switches, so the pill counts an hour until then; switching to another model starts it cold.
 

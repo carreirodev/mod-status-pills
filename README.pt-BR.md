@@ -20,10 +20,12 @@ Uma faixa de pílulas colada no prompt do Claude Code, com o que a status line m
 | Contexto | Quanto da janela de contexto já foi usado, com barra | `ctx 24%` |
 | Limite de 5 horas | Uso, com barra, e o tempo que falta para renovar | `5h 8% · 3h09` |
 | Limite de 7 dias | Uso, com barra, e o dia/mês e a hora da renovação | `7D 11% · 19/10 21h` |
-| Projeto | Pasta do projeto e branch do git | `mod-status-pills main` |
+| Projeto | Pasta do projeto e o branch do git em que o agente trabalha | `mod-status-pills main` |
 | Cache de prompt | Minutos até o cache esfriar, e quanto do que foi enviado veio dele | `42m 95%` |
 
 As barras ficam verdes abaixo de 50%, amarelas abaixo de 80% e vermelhas daí para cima. Numa janela estreita as barras encurtam primeiro; se ainda não couber, as pílulas descem para uma segunda linha, com as duas linhas centralizadas.
+
+O branch acompanha o agente. Quando ele edita um arquivo em outra worktree do mesmo repositório (uma que ele criou com `git worktree add` para trabalhar ao lado de outra sessão, por exemplo), a pílula mostra o branch dessa worktree, e a pasta continua sendo a da sessão. Ela volta ao branch da pasta da sessão quando o agente edita um arquivo lá de novo, ou quando essa worktree é removida. Só contam as edições da conversa principal, não as de um subagente.
 
 A pílula do cache aparece depois da primeira resposta. Os minutos contam a partir do último pedido ao modelo, com as mesmas cores conforme o quanto da vida do cache já passou; quando acabam, a pílula mostra `frio` em vermelho, e a próxima mensagem reprocessa a conversa inteira. A porcentagem conta só a conversa principal, desde o início ou desde o último `/clear`. O Claude Code só informa a um mod quanto o cache dura quando o modelo muda, então a pílula conta uma hora até lá; trocar para outro modelo começa com o cache frio.
 

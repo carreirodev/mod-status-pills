@@ -85,30 +85,55 @@ const COLD: TurnUsage = {
   model: 'claude-opus-5-5',
 }
 
+// A worktree as `git worktree list` names it
+type Tree = { path: string; branch: string | null }
+
+// The session's folder and a worktree an agent made beside it, as git writes them
+const MAIN_TREE = 'C:/Users/dev/Repository/painel-agents-mod'
+const SIDE_TREE = 'C:/Users/dev/Repository/painel-agents-mod-wpc-217'
+const TWO_TREES: Tree[] = [
+  { path: MAIN_TREE, branch: 'main' },
+  { path: SIDE_TREE, branch: 'wpc-217' },
+]
+// A file the agent edits in that worktree, as the edit tools name it
+const SIDE_FILE = 'C:\\Users\\dev\\Repository\\painel-agents-mod-wpc-217\\app\\layout.tsx'
+
+// `git worktree list --porcelain -z`: a NUL after each line, and one more after each worktree
+const listingOf = (trees: Tree[]) =>
+  trees.map(tree => `worktree ${tree.path}\0HEAD 5bb48ce\0${tree.branch === null ? 'detached' : `branch refs/heads/${tree.branch}`}\0\0`).join('')
+
 // The engine beneath the plugin, answering as a session would; `under` is a
 // text another mod beneath the plugin draws under the engine's hint line, and
 // `above` one it draws in the band above the prompt
-function engine(on: On, options: { branch?: string | null; under?: string; above?: string } = {}) {
+function engine(on: On, options: { branch?: string | null; worktrees?: Tree[]; under?: string; above?: string } = {}) {
+  const branch = options.branch === undefined ? 'main' : options.branch
   const beneath = {
     usage: USAGE,
     // What the next model request reports; null, a response that carried no usage
     step: null as TurnUsage | null,
     clock: mock.clock(on, { now: NOW }),
+    // What git lists, and whether the person refuses the edit tools' calls
+    worktrees: options.worktrees ?? [{ path: MAIN_TREE, branch }],
+    refusesEdits: false,
   }
-  const branch = options.branch === undefined ? 'main' : options.branch
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   on('session.root', () => ({ value: 'C:\\Users\\dev\\Repository\\painel-agents-mod' }))
   on('session.cwd', () => ({ value: 'C:\\Users\\dev\\Repository\\painel-agents-mod' }))
   on('session.usage', () => ({ value: beneath.usage }))
-  on('process.run', () => ({
-    value: {
-      exitCode: branch === null ? 128 : 0,
-      stdout: branch === null ? '' : `${branch}\n`,
-      stderr: branch === null ? 'fatal: not a git repository' : '',
-      isStdoutTruncated: false,
-      isStderrTruncated: false,
-    },
-  }))
+  // git in the session's folder: the branch checked out there, or the worktrees of its repository
+  on('process.run', ($, e) => {
+    const stdout = branch === null ? null : e.argv.includes('worktree') ? listingOf(beneath.worktrees) : `${branch}\n`
+    return {
+      value: {
+        exitCode: stdout === null ? 128 : 0,
+        stdout: stdout ?? '',
+        stderr: stdout === null ? 'fatal: not a git repository' : '',
+        isStdoutTruncated: false,
+        isStderrTruncated: false,
+      },
+    }
+  })
+  on('tool.call', () => (beneath.refusesEdits ? { deny: 'The user refused this edit' } : { result: { written: true } }))
   on('ui.render', { component: 'PromptHint' }, ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
     const line = <Text>{e.props.hint}</Text>
@@ -166,6 +191,9 @@ async function step($: Engine, effort: 'low' | 'medium' | 'high' | 'xhigh' | 'ma
     // drains the response
   }
 }
+
+// The main loop editing a file
+const edit = ($: Engine, file: string) => $.tool.call({ tool: 'Edit', file_path: file, old_string: 'a', new_string: 'b' })
 
 // The terminal's hint line or the desktop's band as drawn: what the engine and
 // the plugins beneath drew, then the pills' own row
@@ -469,6 +497,73 @@ test('the project in green after its folder, the branch in blue after its glyph'
   expect(colorOf(` ${BRANCH_ICON}`)).toBe(BRANCH)
   expect(colorOf(' main')).toBe(BRANCH)
   expect(found.some(t => t.text.includes('·'))).toBe(false)
+  await ui.unmount()
+})
+
+test("an edit in another worktree of the repository shows that worktree's branch", async ($, on) => {
+  const beneath = engine(on, { worktrees: TWO_TREES })
+  await begin($)
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  expect(await textsOf(ui)).toContain(' main')
+
+  await edit($, SIDE_FILE)
+  expect(await textsOf(ui)).toContain(' wpc-217')
+  // The session stays in its own folder, and the next reading keeps the agent's branch
+  await beneath.clock.advance(MINUTE)
+  expect(await textsOf(ui)).toContain(' painel-agents-mod')
+  expect(await textsOf(ui)).toContain(' wpc-217')
+
+  // A file back in the session's folder, its drive letter in another case, brings its branch back
+  await $.tool.call({ tool: 'Write', file_path: 'c:\\users\\dev\\repository\\painel-agents-mod\\README.md', content: '' })
+  expect(await textsOf(ui)).toContain(' main')
+  expect(await textsOf(ui)).not.toContain(' wpc-217')
+  await ui.unmount()
+})
+
+test('a file outside the repository leaves the branch where the agent was working', async ($, on) => {
+  engine(on, { worktrees: TWO_TREES })
+  await begin($)
+  await edit($, SIDE_FILE)
+  await $.tool.call({ tool: 'Write', file_path: 'C:\\Users\\dev\\.claude\\projects\\painel\\memory\\notes.md', content: '' })
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  expect(await textsOf(ui)).toContain(' wpc-217')
+  await ui.unmount()
+})
+
+test("once that worktree is removed the branch is the session folder's again", async ($, on) => {
+  const beneath = engine(on, { worktrees: TWO_TREES })
+  await begin($)
+  await edit($, SIDE_FILE)
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  expect(await textsOf(ui)).toContain(' wpc-217')
+  beneath.worktrees = TWO_TREES.slice(0, 1)
+  await beneath.clock.advance(MINUTE)
+  expect(await textsOf(ui)).toContain(' main')
+  await ui.unmount()
+})
+
+test('a refused edit leaves the branch as it was', async ($, on) => {
+  const beneath = engine(on, { worktrees: TWO_TREES })
+  beneath.refusesEdits = true
+  await begin($)
+  await edit($, SIDE_FILE)
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  expect(await textsOf(ui)).toContain(' main')
+  expect(await textsOf(ui)).not.toContain(' wpc-217')
+  await ui.unmount()
+})
+
+test("a worktree inside the session's folder is told apart from it", async ($, on) => {
+  engine(on, { worktrees: [...TWO_TREES, { path: `${MAIN_TREE}/.claude/worktrees/fix-header`, branch: 'fix-header' }] })
+  await begin($)
+  await edit($, 'C:\\Users\\dev\\Repository\\painel-agents-mod\\.claude\\worktrees\\fix-header\\app\\header.tsx')
+
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', ...hint(200) })
+  expect(await textsOf(ui)).toContain(' fix-header')
   await ui.unmount()
 })
 

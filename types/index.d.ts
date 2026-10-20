@@ -38,6 +38,9 @@ declare module 'claude-code' {
       effort: string | null
       // The main loop's prompt cache; null until a response or a model switch reports on it
       cache: Cache | null
+      // The worktree of the session's repository the main loop last edited a
+      // file in, as git lists it; null until then
+      worktree: string | null
     }
   }
 }

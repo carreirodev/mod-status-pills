@@ -22,6 +22,7 @@ const COLD = 'frio'
 const snapshot = atom({ plugin: 'status-pills', key: 'snapshot' } as const, null)
 const effort = atom({ plugin: 'status-pills', key: 'effort' } as const, null)
 const cache = atom({ plugin: 'status-pills', key: 'cache' } as const, null)
+const worktree = atom({ plugin: 'status-pills', key: 'worktree' } as const, null)
 
 // The colors are made for a dark background; the desktop's light theme darkens each.
 // One soft palette: every pill sits on the same surface, a pill's own hue is
@@ -140,29 +141,71 @@ function limitOf(usage: SessionUsage, kind: string): Limit | null {
   return { percent: found.percentUsed, resetsAt: Number.isFinite(resetsAt) ? resetsAt : null }
 }
 
-async function branchOf($: EngineInterface, cwd: string): Promise<string | null> {
+// What git prints run in `cwd`, or null when it fails there
+async function git($: EngineInterface, cwd: string, args: string[]): Promise<string | null> {
   try {
-    const { exitCode, stdout } = await $.process.run(['git', '--no-optional-locks', 'branch', '--show-current'], {
-      cwd,
-      timeoutMs: 5000,
-    })
-    const branch = stdout.trim()
-    return exitCode === 0 && branch !== '' ? branch : null
+    const { exitCode, stdout } = await $.process.run(['git', '--no-optional-locks', ...args], { cwd, timeoutMs: 5000 })
+    return exitCode === 0 ? stdout : null
   } catch {
     // git missing from the PATH, or it hung
     return null
   }
 }
 
+type Worktree = { path: string; branch: string | null }
+
+// A path as git writes it, so two can be compared: forward slashes, no
+// trailing one, and a Windows path (one with a drive letter) in one case
+function comparable(path: string): string {
+  const slashed = path.replace(/\\/g, '/').replace(/\/+$/, '')
+  return /^[a-z]:\//i.test(slashed) ? slashed.toLowerCase() : slashed
+}
+
+const fieldOf = (lines: string[], prefix: string) => lines.find(line => line.startsWith(prefix))?.slice(prefix.length)
+
+// The worktrees of the repository `cwd` is in, each with its branch (null when
+// detached). With -z a NUL ends each line, and an empty line each worktree
+async function worktreesOf($: EngineInterface, cwd: string): Promise<Worktree[]> {
+  const listed = await git($, cwd, ['worktree', 'list', '--porcelain', '-z'])
+  return (listed ?? '').split('\0\0').flatMap(record => {
+    const lines = record.split('\0')
+    const path = fieldOf(lines, 'worktree ')
+    return path === undefined ? [] : [{ path, branch: fieldOf(lines, 'branch refs/heads/') ?? null }]
+  })
+}
+
+// The worktree a file is in: the deepest that holds it, since one worktree
+// can sit inside another's folder
+function holderOf(worktrees: Worktree[], file: string): Worktree | undefined {
+  const path = comparable(file)
+  return worktrees
+    .filter(one => path.startsWith(`${comparable(one.path)}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0]
+}
+
+// The branch of the worktree the main loop last edited a file in, while git
+// still lists it; else the branch checked out in the session's folder
+async function branchOf($: EngineInterface, cwd: string, edited: string | null): Promise<string | null> {
+  if (edited !== null) {
+    const found = (await worktreesOf($, cwd)).find(one => comparable(one.path) === comparable(edited))
+    if (found !== undefined) {
+      return found.branch
+    }
+  }
+  const branch = (await git($, cwd, ['branch', '--show-current']))?.trim() ?? ''
+  return branch === '' ? null : branch
+}
+
 async function refresh($: EngineInterface) {
-  const [usage, model, root, cwd, now] = await Promise.all([
+  const [usage, model, root, cwd, now, edited] = await Promise.all([
     $.session.usage(),
     $.session.model(),
     $.session.root(),
     $.session.cwd(),
     $.clock.now(),
+    read($, worktree),
   ])
-  const branch = await branchOf($, cwd)
+  const branch = await branchOf($, cwd, edited)
   await update($, snapshot, () => ({
     model,
     contextPercent: usage.context.percent ?? null,
@@ -339,6 +382,24 @@ export const register: Register = on => {
       return { ...state, sentAt: isSameModel ? state.sentAt : null, ttlMs }
     })
     return next(e)
+  })
+
+  // The branch follows the agent: an agent that made a worktree of its own and
+  // works in it edits files there, while the session stays in its own folder
+  on('tool.call', { tool: ['Edit', 'Write', 'NotebookEdit'] }, async ($, e, next) => {
+    const result = await next(e)
+    // A subagent may edit in a worktree of its own, which goes when it ends
+    if (e.agentId !== undefined || result.deny !== undefined || result.isError === true) {
+      return result
+    }
+    const file = e.tool === 'NotebookEdit' ? e.notebook_path : e.file_path
+    // A file outside the repository (a memory, a scratch file) leaves the branch as it was
+    const holder = holderOf(await worktreesOf($, await $.session.cwd()), file)
+    if (holder !== undefined) {
+      await update($, worktree, () => holder.path)
+      await update($, snapshot, shot => (shot === null ? null : { ...shot, branch: holder.branch }))
+    }
+    return result
   })
 
   // A /clear starts the conversation over: its cache counts start again, the entry's life kept
