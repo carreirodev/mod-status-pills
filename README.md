@@ -26,13 +26,15 @@ The bars are green under 50%, yellow under 80%, and red from there up. In a narr
 
 ## Install
 
-Status Pills installs by its id, `status-pills`. In a Claude Code session, type:
+Status Pills installs by its id, `status-pills`, from [WPC Mods for Claude](https://github.com/carreirodev/wpc-mods-claude), the marketplace with all my mods. In a Claude Code session, type:
 
 ```
-/plugin install status-pills --marketplace carreirodev/mod-status-pills
+/plugin install status-pills --marketplace carreirodev/wpc-mods-claude
 ```
 
 Answer `y` to add the marketplace, then press Enter to pick the user scope (the first in the list). `Installed status-pills` confirms it, and the pills show up in every new session from then on.
+
+Installed it earlier from this repository's own marketplace (`status-pills@status-pills`)? That copy keeps updating as before. To switch, follow [these steps](https://github.com/carreirodev/wpc-mods-claude#if-you-already-installed-a-mod-from-its-own-repository); don't keep both, since only one would run.
 
 > [!TIP]
 > The terminal icons need a [Nerd Font](https://www.nerdfonts.com/). On WSL or Linux, also check [True color on WSL and Linux](#true-color-on-wsl-and-linux).
@@ -44,20 +46,20 @@ Updates aren't automatic: each computer that installed from the marketplace has 
 1. In a terminal, outside Claude Code, run:
 
    ```
-   claude plugin update status-pills@status-pills
+   claude plugin update status-pills@wpc-mods-claude
    ```
 
    The reply says which version it moved from and to, e.g. `updated from 0.2.2 to 0.2.3`. If it's already on the latest, it says `already at the latest version`.
 
 2. Open a new Claude Code session, or run `/reload-plugins` in one that's already open. A session left open during the update keeps the old version until then.
 
-Inside a session, `/plugin marketplace update status-pills` does the same as step 1.
+Inside a session, `/plugin marketplace update wpc-mods-claude` does the same as step 1.
 
 WSL has its own Claude Code install, separate from the Windows one: run step 1 inside WSL too.
 
-To check the installed version, run `claude plugin list` and look for `status-pills@status-pills`.
+To check the installed version, run `claude plugin list` and look for `status-pills@wpc-mods-claude`.
 
-To stop having to remember: in `/plugin`, on the **Marketplaces** tab, pick `status-pills` and then **Enable auto-update**. From then on, each new session fetches the new version by itself and tells you with `Plugin updated: status-pills · Run /reload-plugins to apply`.
+To stop having to remember: in `/plugin`, on the **Marketplaces** tab, pick `wpc-mods-claude` and then **Enable auto-update**. From then on, each new session fetches the new version by itself and tells you with `Plugin updated: status-pills · Run /reload-plugins to apply`.
 
 ## Where the pills sit
 
