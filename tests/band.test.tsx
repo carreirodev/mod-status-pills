@@ -889,19 +889,23 @@ for (const [name, variables] of NO_PICTURES) {
   })
 }
 
-// How a session started again in `variables` draws the band: `image` when its
-// bars are Images, `text` when it is the 0.5.0 band
+// How a session started again in `variables` draws the band: `image` when the
+// three bars are Images and no text is a shade, `text` when it is the 0.5.0 band
 async function modeIn($: Engine, env: { variables: Record<string, string> }, variables: Record<string, string>) {
   env.variables = variables
   await begin($)
   const ui = await terminalAt($, 200)
   const images = await ui.findAll({ type: 'Image' })
   const drawn = await ui.drawn()
+  const bars = (await barsOf(ui)).map(bar => bar.key)
+  const shaded = (await textsOf(ui)).some(text => /[▓░]/.test(text))
   await ui.unmount()
   if (images.length === 0) {
     expect(drawn).toEqual(RELEASE_0_5_0.terminal.wide)
     return 'text'
   }
+  expect(bars).toEqual(['context', 'five-hour', 'seven-day'])
+  expect(shaded).toBe(false)
   return 'image'
 }
 
@@ -1060,8 +1064,10 @@ test('pictures: a bar is a thin track with round ends, filled from the left in i
     expect(bar.colorAt(0, top)).toBe(CHIP_TINT)
     expect(bar.colorAt(bar.width - 1, top)).toBe(CHIP_TINT)
     expect(bar.colorAt(Math.floor(bar.width / 2), top)).not.toBe(CHIP_TINT)
-    // The fill starts at the left end, in the bar's severity color
-    expect(bar.colorAt(thickness, middle)).toBe([OK, WARN, CRIT][at])
+    // The fill starts at the left end, in the bar's severity color, and runs
+    // whole to its share of the width
+    const share = [0.3, 0.6, 0.9][at] ?? 0
+    expect([...new Set(bar.row(middle).slice(0, Math.floor(share * bar.width)))]).toEqual([[OK, WARN, CRIT][at]])
   })
   // Past the fill, the track's gray
   const [context] = bars
@@ -1090,6 +1096,15 @@ test('pictures: 0% shows the track alone, 1% a round stub as wide as the bar is 
   const middle = over.row(Math.floor(over.height / 2))
   const end = Math.ceil(thickness / 2)
   expect(middle.slice(end, over.width - end).some(color => color === TRACK)).toBe(false)
+
+  // The stub's right end is round: on the track's first and last rows its last column is the track's gray
+  const painted = empty.column(Math.floor(empty.width / 2)).map(color => color !== CHIP_TINT)
+  const [top, bottom] = [painted.indexOf(true), painted.lastIndexOf(true)]
+  expect([stub.colorAt(thickness - 1, top), stub.colorAt(thickness - 1, bottom)]).toEqual([TRACK, TRACK])
+  // Neither the stub nor the full bar paints outside the track
+  for (const bar of [stub, over]) {
+    expect(empty.every((x, y) => empty.colorAt(x, y) !== CHIP_TINT || bar.colorAt(x, y) === CHIP_TINT)).toBe(true)
+  }
 })
 
 test('pictures: a bar picture changes with its percent and stays byte for byte with the same one', async ($, on) => {
