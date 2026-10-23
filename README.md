@@ -90,6 +90,16 @@ The pills sit right under the prompt. Claude Code's hint line stays as it draws 
 
 Each pill is one line tall, with a colored background and rounded ends.
 
+In kitty and Ghostty, the bars and icons are pictures the mod paints, as on the desktop: a thin bar with round ends that fills smoothly, and the same line icons. Never inside tmux or screen, nor in a background session: there, and in any other terminal, they stay characters, as before.
+
+If your terminal looks like one of those but doesn't draw pictures, the bars show up dimmed as `▓░░░░░`, and the icons as dimmed glyphs. To pick by hand, set `CLAUDE_STATUS_PILLS_RENDERER` in the `env` block of `~/.claude/settings.json`: `image` for pictures, `text` for characters. It takes effect from a new session.
+
+```json
+"env": {
+  "CLAUDE_STATUS_PILLS_RENDERER": "text"
+}
+```
+
 ### Desktop app
 
 The line under the text box belongs to the app itself (permission mode, model), and it doesn't let mods draw there. So on the desktop the pills go in the band above the text box, always last, right against it. Whatever other mods draw in that band (prompt-enhancer's buttons, for example) stays above the pills.

@@ -90,6 +90,16 @@ As pílulas ficam logo abaixo do prompt. A linha de dicas do Claude Code continu
 
 Cada pílula ocupa uma linha, com fundo colorido e pontas arredondadas.
 
+No kitty e no Ghostty, as barras e os ícones são figuras que o mod pinta, como no desktop: uma barra fina, de pontas redondas, que enche sem degraus, e os mesmos ícones de traço. Nunca dentro do tmux ou do screen, nem numa sessão em segundo plano: aí, e em qualquer outro terminal, eles continuam caracteres, como antes.
+
+Se o seu terminal parece um desses mas não desenha figuras, as barras aparecem apagadas, como `▓░░░░░`, e os ícones como glifos apagados. Para escolher à mão, ponha `CLAUDE_STATUS_PILLS_RENDERER` no bloco `env` do `~/.claude/settings.json`: `image` para figuras, `text` para caracteres. Vale a partir de uma sessão nova.
+
+```json
+"env": {
+  "CLAUDE_STATUS_PILLS_RENDERER": "text"
+}
+```
+
 ### App desktop
 
 A linha embaixo da caixa de texto é do próprio app (o modo de permissão, o modelo), e ele não deixa os mods desenharem nela. Por isso lá as pílulas ficam na faixa acima da caixa, sempre por último, coladas nela. O que outros mods desenham nessa faixa (os botões do prompt-enhancer, por exemplo) fica acima das pílulas.

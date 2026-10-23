@@ -1,6 +1,6 @@
 {
   "name": "status-pills",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A band of pills by the prompt, under it in the terminal and above it on the desktop: model and effort, context, the 5-hour and 7-day limits with their resets, project and branch, and the prompt cache",
   "author": { "name": "carreirodev" },
   "types": "./types/index.d.ts"
