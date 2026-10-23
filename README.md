@@ -6,7 +6,7 @@ A row of pills by the Claude Code prompt that shows what the status line shows, 
 
 **In the terminal**
 
-![Status Pills in the terminal: model and effort, context, the 5-hour and 7-day limits with their resets, project and branch](images/terminal-example.png)
+![Status Pills in the terminal: model and effort, context, the 5-hour and 7-day limits with their resets, project and branch, and the prompt cache](images/terminal-example.png)
 
 **In the desktop app**
 

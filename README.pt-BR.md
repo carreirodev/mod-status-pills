@@ -6,7 +6,7 @@ Uma faixa de pílulas colada no prompt do Claude Code, com o que a status line m
 
 **No terminal**
 
-![Status Pills no terminal: modelo e esforço, contexto, limites de 5 horas e 7 dias com as renovações, projeto e branch](images/terminal-example.png)
+![Status Pills no terminal: modelo e esforço, contexto, limites de 5 horas e 7 dias com as renovações, projeto e branch, e o cache de prompt](images/terminal-example.png)
 
 **No app desktop**
 
