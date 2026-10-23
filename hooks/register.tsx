@@ -333,9 +333,9 @@ function pillsOf(shot: Snapshot, effortLevel: string | null, cacheState: Cache |
   return pills
 }
 
-// One run of the terminal's band: text, `background` the pill's tint; or a
-// picture the mod painted, `columns` cells wide, with the text it stands for
-type Run = { text: string; color: string; bold: boolean; background?: string } | { picture: ImageSource; columns: number; alt: string }
+// One run of the terminal's band: text, or a picture the mod painted,
+// `columns` cells wide, with the text it stands for; `background` the pill's tint
+type Run = ({ text: string; color: string; bold: boolean } | { picture: ImageSource; columns: number; alt: string }) & { background?: string }
 
 // `pictures`: the bars and icons as pictures, painted on `tint`
 function runsOf(item: Item, cells: number, tint: string, pictures: boolean): Run[] {
@@ -382,7 +382,7 @@ function terminalRuns(pill: Pill, cells: number, pictures: boolean): Run[] {
   const closing = spansSpace(pill.items.length - 1) ? [] : [padding]
   const runs: Run[] = [
     { text: LEFT_CAP, color: tint, bold: false },
-    ...[padding, ...items, ...closing].map(run => ('picture' in run ? run : { ...run, background: tint })),
+    ...[padding, ...items, ...closing].map(run => ({ ...run, background: tint })),
     { text: RIGHT_CAP, color: tint, bold: false },
   ]
   return runs.filter(run => 'picture' in run || run.text !== '')
@@ -554,7 +554,13 @@ export const register: Register = on => {
             <Box key={row.key} flexDirection="row" flexShrink={0}>
               {row.runs.map(run =>
                 'picture' in run ? (
-                  <Image source={run.picture} columns={run.columns} rows={1} alt={run.alt} />
+                  // why: the terminal fits a picture into its cells keeping its
+                  // proportions, so cells taller than pixels.ts takes them leave
+                  // a strip above and below it in the cells' own background:
+                  // the terminal's, which notched the pill, unless set here
+                  <Box flexShrink={0} {...(run.background === undefined ? {} : { backgroundColor: run.background })}>
+                    <Image source={run.picture} columns={run.columns} rows={1} alt={run.alt} />
+                  </Box>
                 ) : (
                   <Text color={run.color} bold={run.bold} {...(run.background === undefined ? {} : { backgroundColor: run.background })}>
                     {run.text}

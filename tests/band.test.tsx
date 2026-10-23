@@ -805,11 +805,16 @@ const terminalAt = ($: Engine, columns?: number) =>
 type Node = { type: string; props?: Record<string, unknown>; children?: unknown[] }
 type Drawing = { drawn: () => Promise<unknown> }
 
-// The pills of the terminal's band, each a row of Texts and Images, and the row that holds them
+// The pills of the terminal's band, each a row of Texts and Images, and the row
+// that holds them; each Image comes out of the Box that lays the tint under it
 async function pillsDrawn(ui: Drawing) {
   const tree = (await ui.drawn()) as Node
   const row = tree.children?.[1] as Node
-  return (row.children as Node[]).map(pill => ({ key: String(pill.props?.key), parts: pill.children as Node[], row }))
+  const unwrapped = (part: Node) => {
+    const [inner] = (part.children ?? []) as Node[]
+    return part.type === 'Box' && inner?.type === 'Image' ? inner : part
+  }
+  return (row.children as Node[]).map(pill => ({ key: String(pill.props?.key), parts: (pill.children as Node[]).map(unwrapped), row }))
 }
 
 const isBarAlt = (alt: unknown) => typeof alt === 'string' && /^[▓░]+$/.test(alt)
@@ -1229,6 +1234,21 @@ test('pictures: each of the eight icons is an opaque Image over its cell and the
   // No icon is drawn as its glyph too
   const glyphs = new Set(ICONS.map(icon => icon.alt))
   expect((await textsOf(ui)).some(text => [...text].some(char => glyphs.has(char)))).toBe(false)
+  await ui.unmount()
+})
+
+test('pictures: every picture sits on a Box of the tint, which shows above and below it in cells taller than it takes', async ($, on) => {
+  await warmSession($, on, NOCTTY)
+  const ui = await terminalAt($, 200)
+  const row = ((await ui.drawn()) as Node).children?.[1] as Node
+  const holders = (row.children as Node[]).flatMap(pill => (pill.children as Node[]).filter(part => part.type === 'Box'))
+
+  // Three bars and nine icons
+  expect(holders).toHaveLength(12)
+  expect(await ui.findAll({ type: 'Image' })).toHaveLength(holders.length)
+  for (const holder of holders) {
+    expect(holder).toMatchObject({ props: { flexShrink: 0, backgroundColor: CHIP_TINT }, children: [{ type: 'Image' }] })
+  }
   await ui.unmount()
 })
 

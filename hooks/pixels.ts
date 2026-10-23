@@ -7,9 +7,11 @@ import type { ImageSource } from 'claude-code'
 import { BAR_HEIGHT, ICON_PATHS, ICON_SIZE, ICON_STROKE, PILL_HEIGHT } from './picture'
 import type { Icon } from './picture'
 
-// One cell in pixels. The terminal stretches a picture over its box of cells
-// and never tells the mod how big a cell is, so a cell is taken as twice as
-// tall as it is wide
+// One cell in pixels. The terminal fits a picture into its box of cells,
+// keeping its proportions and centering it, and never tells the mod how big a
+// cell is, so a cell is taken as twice as tall as it is wide: at the short end
+// of what terminals draw, so taller cells (noctty's are 7:3) leave strips above
+// and below the picture, on the pill's tint, and never a gap at a bar's ends
 const CELL_WIDTH = 22
 const CELL_HEIGHT = 2 * CELL_WIDTH
 // The cells an icon's picture spans: its own, and the space before the text after it
