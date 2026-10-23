@@ -409,7 +409,11 @@ export const register: Register = on => {
     // A band drawn before this, as right after a reload, was characters: draw
     // it again in the mode, even if the reading below finds nothing new
     mode = await modeOf($)
-    $.ui.invalidate('ui.render')
+    try {
+      $.ui.invalidate('ui.render')
+    } catch {
+      // An engine without it: the band is drawn again once the reading below finds something new
+    }
     await refresh($)
     $.clock.every(TICK_MS, () => void refresh($))
     return next(e)
