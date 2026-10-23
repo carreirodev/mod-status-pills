@@ -12,6 +12,8 @@ import type { Icon } from './picture'
 // tall as it is wide
 const CELL_WIDTH = 22
 const CELL_HEIGHT = 2 * CELL_WIDTH
+// The cells an icon's picture spans: its own, and the space before the text after it
+export const ICON_CELLS = 2
 // Each pixel is sampled on a 4 by 4 grid: an edge gets 16 shades, and a pixel
 // a shape covers whole keeps the shape's exact color
 const GRID = 4
@@ -230,27 +232,32 @@ function near([ax, ay, bx, by]: Segment, x: number, y: number, reach: number): b
   return dx * dx + dy * dy <= reach * reach
 }
 
-// An icon in one cell: the desktop's 13-pixel box fills the square in the
-// middle of the cell, and its path is stroked as thick against it as there
+// An icon over two cells, its own and the space after it: in one, its square
+// could be no wider than the cell, half the row's height. The desktop's
+// 13-pixel box fills a square of 3/4 of the row against the left edge, which
+// leaves the rest as the gap before the text, and its path is stroked as
+// thick against it as there
 export function iconPicture(icon: Icon, color: string, tint: string): ImageSource {
   return remembered(`icon ${icon} ${color} ${tint}`, () => {
-    const scale = CELL_WIDTH / ICON_SIZE
-    const top = (CELL_HEIGHT - CELL_WIDTH) / 2
+    const width = ICON_CELLS * CELL_WIDTH
+    const side = (3 / 4) * CELL_HEIGHT
+    const top = (CELL_HEIGHT - side) / 2
+    const scale = side / ICON_SIZE
     const segments = segmentsOf(ICON_PATHS[icon]).map(([ax, ay, bx, by]): Segment => [ax * scale, top + ay * scale, bx * scale, top + by * scale])
     const reach = (ICON_STROKE / 2) * scale
     // Each pixel's segments close enough to touch it, so a sample tests a few, not the whole path
-    const touching: Segment[][] = Array.from({ length: CELL_WIDTH * CELL_HEIGHT }, () => [])
+    const touching: Segment[][] = Array.from({ length: width * CELL_HEIGHT }, () => [])
     for (const segment of segments) {
       const [ax, ay, bx, by] = segment
-      const [left, right] = [Math.max(0, Math.floor(Math.min(ax, bx) - reach)), Math.min(CELL_WIDTH - 1, Math.floor(Math.max(ax, bx) + reach))]
+      const [left, right] = [Math.max(0, Math.floor(Math.min(ax, bx) - reach)), Math.min(width - 1, Math.floor(Math.max(ax, bx) + reach))]
       const [upper, lower] = [Math.max(0, Math.floor(Math.min(ay, by) - reach)), Math.min(CELL_HEIGHT - 1, Math.floor(Math.max(ay, by) + reach))]
       for (let y = upper; y <= lower; y++) {
         for (let x = left; x <= right; x++) {
-          touching[y * CELL_WIDTH + x]?.push(segment)
+          touching[y * width + x]?.push(segment)
         }
       }
     }
-    const covers = (x: number, y: number) => (touching[Math.floor(y) * CELL_WIDTH + Math.floor(x)] ?? []).some(segment => near(segment, x, y, reach))
-    return paint(CELL_WIDTH, CELL_HEIGHT, tint, [{ color, covers }])
+    const covers = (x: number, y: number) => (touching[Math.floor(y) * width + Math.floor(x)] ?? []).some(segment => near(segment, x, y, reach))
+    return paint(width, CELL_HEIGHT, tint, [{ color, covers }])
   })
 }

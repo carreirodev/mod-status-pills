@@ -4,7 +4,7 @@ import type { ElementConstructor, EngineInterface, ImageProps, ImageSource, Regi
 import type { Cache, Limit, Snapshot } from '../types'
 import { PICTURE_HEIGHT, pictureOf } from './picture'
 import type { Accent, Icon, Item, Pill } from './picture'
-import { barPicture, iconPicture } from './pixels'
+import { ICON_CELLS, barPicture, iconPicture } from './pixels'
 
 // Reads the session again twice a minute, so the countdowns move and a
 // /model or a branch switch shows up without waiting for a turn
@@ -344,7 +344,7 @@ function runsOf(item: Item, cells: number, tint: string, pictures: boolean): Run
       return [{ text: item.text, color: item.color, bold: item.bold }]
     case 'icon':
       if (pictures) {
-        return [{ picture: iconPicture(item.icon, item.color, tint), columns: 1, alt: GLYPHS[item.icon] }]
+        return [{ picture: iconPicture(item.icon, item.color, tint), columns: ICON_CELLS, alt: GLYPHS[item.icon] }]
       }
       return [{ text: GLYPHS[item.icon], color: item.color, bold: false }]
     case 'separator':
@@ -364,21 +364,25 @@ function runsOf(item: Item, cells: number, tint: string, pictures: boolean): Run
 }
 
 // A pill in the terminal: one row, a space between its items, on its tint
-// between two rounded ends; before a picture the space is a run of its own
+// between two rounded ends; before a picture the space is a run of its own,
+// and an icon's picture spans the space after it, so the pill keeps the
+// columns its text takes
 function terminalRuns(pill: Pill, cells: number, pictures: boolean): Run[] {
   const { tint } = pill.accent
+  const spansSpace = (index: number) => pictures && pill.items[index]?.kind === 'icon'
   const items = pill.items.flatMap((item, index) =>
     runsOf(item, cells, tint, pictures).flatMap((run, at): Run[] => {
-      if (index === 0 || at > 0) {
+      if (index === 0 || at > 0 || spansSpace(index - 1)) {
         return [run]
       }
       return 'picture' in run ? [{ text: ' ', color: tint, bold: false }, run] : [{ ...run, text: ` ${run.text}` }]
     }),
   )
   const padding: Run = { text: ' ', color: tint, bold: false }
+  const closing = spansSpace(pill.items.length - 1) ? [] : [padding]
   const runs: Run[] = [
     { text: LEFT_CAP, color: tint, bold: false },
-    ...[padding, ...items, padding].map(run => ('picture' in run ? run : { ...run, background: tint })),
+    ...[padding, ...items, ...closing].map(run => ('picture' in run ? run : { ...run, background: tint })),
     { text: RIGHT_CAP, color: tint, bold: false },
   ]
   return runs.filter(run => 'picture' in run || run.text !== '')

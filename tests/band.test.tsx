@@ -1197,17 +1197,26 @@ test('pictures: the desktop draws its 0.5.0 SVG pictures whatever the terminal',
   await ui.unmount()
 })
 
-test('pictures: each of the eight icons is an opaque one-cell Image, its glyph as alt', async ($, on) => {
+test('pictures: each of the eight icons is an opaque Image over its cell and the space after it, its glyph as alt', async ($, on) => {
   await warmSession($, on, NOCTTY)
   const ui = await terminalAt($, 200)
   const icons = await iconsOf(ui)
 
   expect(icons.map(icon => icon.alt)).toEqual(ICONS.map(icon => icon.alt))
+  // What follows each icon in its pill starts right after the picture, its space taken
+  const after = (await pillsDrawn(ui)).flatMap(pill =>
+    pill.parts.flatMap((part, at) => (part.type === 'Image' && !isBarAlt(part.props?.alt) ? [pill.parts[at + 1]] : [])),
+  )
+  expect(after).toHaveLength(ICONS.length)
+  for (const part of after) {
+    expect(part?.type).toBe('Text')
+    expect(String(part?.children?.join('') ?? '').startsWith(' ')).toBe(false)
+  }
   for (const icon of icons) {
-    expect(icon.columns).toBe(1)
+    expect(icon.columns).toBe(2)
     expect(icon.rows).toBe(1)
     const picture = pixelsOf(icon.source)
-    expect(picture.height).toBe(2 * picture.width)
+    expect(picture.width).toBe(picture.height)
     expect(picture.every((x, y) => picture.alphaAt(x, y) === 255)).toBe(true)
     const [right, bottom] = [picture.width - 1, picture.height - 1]
     expect([picture.colorAt(0, 0), picture.colorAt(right, 0), picture.colorAt(0, bottom), picture.colorAt(right, bottom)]).toEqual([
@@ -1248,16 +1257,20 @@ test("pictures: each icon is stroked in its glyph's color", async ($, on) => {
   await ui.unmount()
 })
 
-test('pictures: each icon stays inside the square at the middle of its cell', async ($, on) => {
+// The square an icon is drawn in: against the picture's left edge, 3/4 of its height, centered in it
+const iconSquareOf = (picture: { height: number }) => ({ side: (3 / 4) * picture.height, top: picture.height / 8 })
+
+test('pictures: each icon stays inside its square at the left of the picture', async ($, on) => {
   await warmSession($, on, NOCTTY)
   const ui = await terminalAt($, 200)
   const icons = await iconsOf(ui)
   expect(icons).toHaveLength(ICONS.length)
   for (const icon of icons) {
     const picture = pixelsOf(icon.source)
-    const top = (picture.height - picture.width) / 2
-    const outside = (y: number) => y < top || y >= top + picture.width
-    expect(picture.every((x, y) => !outside(y) || picture.colorAt(x, y) === CHIP_TINT)).toBe(true)
+    const { side, top } = iconSquareOf(picture)
+    // A pixel wholly outside the square
+    const outside = (x: number, y: number) => x >= side || y + 1 <= top || y >= top + side
+    expect(picture.every((x, y) => !outside(x, y) || picture.colorAt(x, y) === CHIP_TINT)).toBe(true)
   }
   await ui.unmount()
 })
@@ -1276,9 +1289,9 @@ test('pictures: each terminal icon follows the path the desktop draws', async ($
   icons.forEach((icon, at) => {
     const picture = pixelsOf(icon.source)
     const color = ICONS[at]?.color ?? ''
-    // The desktop's 13-unit box fills the square at the middle of the cell
-    const scale = picture.width / 13
-    const top = (picture.height - picture.width) / 2
+    // The desktop's 13-unit box fills the icon's square
+    const { side, top } = iconSquareOf(picture)
+    const scale = side / 13
     const starts = [...(paths[at] ?? '').matchAll(/M\s*(-?[\d.]+)[\s,]*(-?[\d.]+)/g)]
     expect(starts.length).toBeGreaterThan(0)
     for (const [, x = '', y = ''] of starts) {
