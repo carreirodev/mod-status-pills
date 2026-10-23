@@ -1,9 +1,10 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, SessionUsage } from 'claude-code'
+import type { ElementConstructor, EngineInterface, ImageProps, ImageSource, Register, SessionUsage } from 'claude-code'
 
 import type { Cache, Limit, Snapshot } from '../types'
 import { PICTURE_HEIGHT, pictureOf } from './picture'
 import type { Accent, Icon, Item, Pill } from './picture'
+import { barPicture, iconPicture } from './pixels'
 
 // Reads the session again twice a minute, so the countdowns move and a
 // /model or a branch switch shows up without waiting for a turn
@@ -38,6 +39,9 @@ const RULE = '#626262'
 // A dense shade: the terminal blends a shade's color with the tint, and a
 // lighter one (▒) left the bars at half their color
 const SHADE = '▓'
+// Where a bar's picture cannot be, its alt is drawn dim and in one color, so
+// its empty cells take a lighter shade than its filled ones
+const LIGHT_SHADE = '░'
 // The oh-my-posh prompt's colors: a green folder, a blue branch
 const PROJECT = '#33dd2d'
 const BRANCH = '#3a86ff'
@@ -86,6 +90,55 @@ const GLYPHS: Record<Icon, string> = {
 // Powerline's half circles, which round off the ends of a pill's tint
 const LEFT_CAP = glyph(0xe0b6)
 const RIGHT_CAP = glyph(0xe0b4)
+
+// How the terminal draws a pill's bars and icons: as pictures the mod paints, or as characters
+type Mode = 'image' | 'text'
+// Read when the session starts; until then, as right after a reload, the band is characters
+let mode: Mode | null = null
+
+// The rules Claude Code draws pictures by: in kitty and Ghostty, never inside
+// tmux or screen nor in a background session, always when forced. Then
+// CLAUDE_STATUS_PILLS_RENDERER, `image` or `text`, overrides them all, and any
+// other value of it is ignored
+async function modeOf($: EngineInterface): Promise<Mode> {
+  try {
+    const [renderer, forced, ghostty, kitty, term, program, tmux, screen, kind] = await Promise.all([
+      $.env.get('CLAUDE_STATUS_PILLS_RENDERER'),
+      $.env.get('CLAUDE_CODE_FORCE_TERMINAL_IMAGES'),
+      $.env.get('GHOSTTY_RESOURCES_DIR'),
+      $.env.get('KITTY_WINDOW_ID'),
+      $.env.get('TERM'),
+      $.env.get('TERM_PROGRAM'),
+      $.env.get('TMUX'),
+      $.env.get('STY'),
+      $.env.get('CLAUDE_CODE_SESSION_KIND'),
+    ])
+    if (renderer === 'image' || renderer === 'text') {
+      return renderer
+    }
+    if (forced !== undefined && forced !== '') {
+      return 'image'
+    }
+    if (tmux !== undefined || screen !== undefined || kind === 'bg') {
+      return 'text'
+    }
+    const drawsPictures = ghostty !== undefined || kitty !== undefined || /ghostty|kitty/.test(term ?? '') || program === 'ghostty'
+    return drawsPictures ? 'image' : 'text'
+  } catch {
+    // An engine that answers no read of the environment
+    return 'text'
+  }
+}
+
+// A one-pixel picture, built only to ask the terminal's table what its Image is
+const PROBE: ImageSource = { rgba: 'AAAAAA==', width: 1, height: 1 }
+
+// Whether the terminal's table has Image: one from before it, or one a mod
+// left it out of, hands out a fragment in its place (or nothing), which would
+// leave a bar blank instead of drawing its alt
+function hasImage(Image: ElementConstructor<ImageProps> | undefined): boolean {
+  return Image !== undefined && Image({ source: PROBE, columns: 1, rows: 1, alt: ' ' }).type === 'Image'
+}
 
 const plain = (text: string, color: string): Item => ({ kind: 'text', text, color, bold: false })
 const strong = (text: string, color: string): Item => ({ kind: 'text', text, color, bold: true })
@@ -280,19 +333,28 @@ function pillsOf(shot: Snapshot, effortLevel: string | null, cacheState: Cache |
   return pills
 }
 
-// One run of text in the terminal; `background` is the pill's tint
-type Run = { text: string; color: string; bold: boolean; background?: string }
+// One run of the terminal's band: text, `background` the pill's tint; or a
+// picture the mod painted, `columns` cells wide, with the text it stands for
+type Run = { text: string; color: string; bold: boolean; background?: string } | { picture: ImageSource; columns: number; alt: string }
 
-function runsOf(item: Item, cells: number): Run[] {
+// `pictures`: the bars and icons as pictures, painted on `tint`
+function runsOf(item: Item, cells: number, tint: string, pictures: boolean): Run[] {
   switch (item.kind) {
     case 'text':
       return [{ text: item.text, color: item.color, bold: item.bold }]
     case 'icon':
+      if (pictures) {
+        return [{ picture: iconPicture(item.icon, item.color, tint), columns: 1, alt: GLYPHS[item.icon] }]
+      }
       return [{ text: GLYPHS[item.icon], color: item.color, bold: false }]
     case 'separator':
       return [{ text: '│', color: RULE, bold: false }]
     case 'bar': {
       const filled = Math.min(cells, Math.max(0, Math.round((item.percent / 100) * cells)))
+      if (pictures) {
+        const picture = barPicture(item.percent, cells, { fill: item.color, track: TRACK, tint })
+        return [{ picture, columns: cells, alt: SHADE.repeat(filled) + LIGHT_SHADE.repeat(cells - filled) }]
+      }
       return [
         { text: SHADE.repeat(filled), color: item.color, bold: false },
         { text: SHADE.repeat(cells - filled), color: TRACK, bold: false },
@@ -301,22 +363,32 @@ function runsOf(item: Item, cells: number): Run[] {
   }
 }
 
-// A pill in the terminal: one row, a space between its items, on its tint between two rounded ends
-function terminalRuns(pill: Pill, cells: number): Run[] {
+// A pill in the terminal: one row, a space between its items, on its tint
+// between two rounded ends; before a picture the space is a run of its own
+function terminalRuns(pill: Pill, cells: number, pictures: boolean): Run[] {
   const { tint } = pill.accent
   const items = pill.items.flatMap((item, index) =>
-    runsOf(item, cells).map((run, at) => (index > 0 && at === 0 ? { ...run, text: ` ${run.text}` } : run)),
+    runsOf(item, cells, tint, pictures).flatMap((run, at): Run[] => {
+      if (index === 0 || at > 0) {
+        return [run]
+      }
+      return 'picture' in run ? [{ text: ' ', color: tint, bold: false }, run] : [{ ...run, text: ` ${run.text}` }]
+    }),
   )
   const padding: Run = { text: ' ', color: tint, bold: false }
-  return [
+  const runs: Run[] = [
     { text: LEFT_CAP, color: tint, bold: false },
-    ...[padding, ...items, padding].map(run => ({ ...run, background: tint })),
+    ...[padding, ...items, padding].map(run => ('picture' in run ? run : { ...run, background: tint })),
     { text: RIGHT_CAP, color: tint, bold: false },
-  ].filter(run => run.text !== '')
+  ]
+  return runs.filter(run => 'picture' in run || run.text !== '')
 }
 
+// The columns a run takes: a picture its cells, a text its characters
+const columnsOf = (run: Run) => ('picture' in run ? run.columns : [...run.text].length)
+
 const widthOf = (rows: Run[][]) =>
-  rows.reduce((sum, runs) => sum + runs.reduce((n, run) => n + [...run.text].length, 0), 0) + PILL_GAP * Math.max(0, rows.length - 1)
+  rows.reduce((sum, runs) => sum + runs.reduce((n, run) => n + columnsOf(run), 0), 0) + PILL_GAP * Math.max(0, rows.length - 1)
 
 // The pills as the session stands, or null while there is nothing to show
 async function pillsNow($: EngineInterface): Promise<Pill[] | null> {
@@ -330,6 +402,10 @@ async function pillsNow($: EngineInterface): Promise<Pill[] | null> {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
+    // A band drawn before this, as right after a reload, was characters: draw
+    // it again in the mode, even if the reading below finds nothing new
+    mode = await modeOf($)
+    $.ui.invalidate('ui.render')
     await refresh($)
     $.clock.every(TICK_MS, () => void refresh($))
     return next(e)
@@ -454,12 +530,13 @@ export const register: Register = on => {
     // why: the hint line, unlike the band above the prompt, is handed no width of
     // its own; until the terminal has measured, the full bars on one row are drawn
     const columns = e.viewport?.columns ?? Number.POSITIVE_INFINITY
-    const rowsOf = (cells: number) => pills.map(pill => ({ key: pill.key, runs: terminalRuns(pill, cells) }))
+    const { Box, Text, Image } = $.ui.resolve(e)
+    const pictures = mode === 'image' && hasImage(Image)
+    const rowsOf = (cells: number) => pills.map(pill => ({ key: pill.key, runs: terminalRuns(pill, cells, pictures) }))
     const full = rowsOf(BAR_CELLS)
     const rows = widthOf(full.map(row => row.runs)) <= columns ? full : rowsOf(COMPACT_BAR_CELLS)
     // Pills that spill onto a second row center both rows, instead of leaving the second one ragged
     const wraps = widthOf(rows.map(row => row.runs)) > columns
-    const { Box, Text } = $.ui.resolve(e)
 
     return (
       <Box flexDirection="column">
@@ -467,11 +544,15 @@ export const register: Register = on => {
         <Box flexDirection="row" flexWrap="wrap" justifyContent={wraps ? 'center' : 'flex-start'} columnGap={PILL_GAP} marginTop={1}>
           {rows.map(row => (
             <Box key={row.key} flexDirection="row" flexShrink={0}>
-              {row.runs.map(run => (
-                <Text color={run.color} bold={run.bold} {...(run.background === undefined ? {} : { backgroundColor: run.background })}>
-                  {run.text}
-                </Text>
-              ))}
+              {row.runs.map(run =>
+                'picture' in run ? (
+                  <Image source={run.picture} columns={run.columns} rows={1} alt={run.alt} />
+                ) : (
+                  <Text color={run.color} bold={run.bold} {...(run.background === undefined ? {} : { backgroundColor: run.background })}>
+                    {run.text}
+                  </Text>
+                ),
+              )}
             </Box>
           ))}
         </Box>

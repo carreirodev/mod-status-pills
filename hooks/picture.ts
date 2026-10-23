@@ -1,8 +1,9 @@
 // The desktop draws each pill as one SVG picture: a soft fill and a thin
 // border, line icons, smooth bars, and colors that follow its light or dark theme
 
-// The icons as 13-pixel line drawings; the terminal draws the same ones as Nerd Font glyphs
-const ICON_PATHS = {
+// The icons as 13-pixel line drawings: the terminal paints these same strokes
+// where it draws pictures, and draws Nerd Font glyphs where it does not
+export const ICON_PATHS = {
   // A microchip
   model: 'M4.5 3.5h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zM5.5 1.5v2M7.5 1.5v2M5.5 9.5v2M7.5 9.5v2M1.5 5.5h2M1.5 7.5h2M9.5 5.5h2M9.5 7.5h2',
   // A speech bubble
@@ -31,7 +32,7 @@ export type Accent = { border: string; tint: string; icon: string }
 export type Pill = { key: string; accent: Accent; items: Item[] }
 
 // Sizes in CSS pixels
-const PILL_HEIGHT = 22
+export const PILL_HEIGHT = 22
 // Clear space above and below the pill inside its picture: rows that wrap sit
 // twice this apart, finer than the band's gaps, which count whole cells
 const ROW_INSET = 2
@@ -39,9 +40,10 @@ export const PICTURE_HEIGHT = PILL_HEIGHT + 2 * ROW_INSET
 const PADDING = 9
 const GAP = 5
 const SEPARATOR_GAP = 7
-const ICON_SIZE = 13
+export const ICON_SIZE = 13
+export const ICON_STROKE = 1.3
 const BAR_WIDTH = 56
-const BAR_HEIGHT = 6
+export const BAR_HEIGHT = 6
 const FONT_SIZE = 12
 const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif'
 
@@ -99,7 +101,7 @@ export function pictureOf(pill: Pill): { source: string; width: number; alt: str
     switch (item.kind) {
       case 'icon':
         marks.push(
-          `<path class="${classOf(item.color)}" transform="translate(${px(x)} ${px(middle - ICON_SIZE / 2)})" d="${ICON_PATHS[item.icon]}" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`,
+          `<path class="${classOf(item.color)}" transform="translate(${px(x)} ${px(middle - ICON_SIZE / 2)})" d="${ICON_PATHS[item.icon]}" fill="none" stroke="currentColor" stroke-width="${ICON_STROKE}" stroke-linecap="round" stroke-linejoin="round"/>`,
         )
         x += ICON_SIZE
         break
